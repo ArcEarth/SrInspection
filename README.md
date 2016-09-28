@@ -5,8 +5,11 @@ if you encounter a problem, email Arc.
 #Build 
 ##Clone and pull this repository
 > git clone this_repo<br/>
+
 > git submodule init DirectXTK<br/>
 > git submodule update<br/>
+
+> git submodule add -b NoViewport --name DirectXTK https://github.com/ArcEarth/DirectXTK.git<br/>
 
 ##Platform/Compilier
 * Windows 8.1+, best with Windows 10
