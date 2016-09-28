@@ -8,11 +8,6 @@ if you encounter a problem, email Arc.
 > git submodule init DirectXTK<br/>
 > git submodule update<br/>
 
-##Tracking Hardware (All optional)
-* Vicon Mocap
-* Leap Motion
-* Kinect 2 for Windows/XBox One
-
 ##Platform/Compilier
 * Windows 8.1+, best with Windows 10
 * Visual Studio 2015 (VC++ 14), best with Update 3
