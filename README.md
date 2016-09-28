@@ -21,6 +21,3 @@ if you encounter a problem, email Arc.
 + tinyObjLoader (included)
 + Wink Signals (included)
 + iterator_range.h, by Google (included)
-
-##Use Leap Motion or Microsoft Kinect 2
-Define following MARCOS in [Envirument Variable](http://superuser.com/questions/949560/how-do-i-set-system-environment-variables-in-windows-10) $(PATH) 
