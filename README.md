@@ -1,10 +1,10 @@
-#Tangiable Holographic Sketch
+#Surface Inspection
 This is a WIP project <br/>
 if you encounter a problem, email Arc.
 
 #Build 
 ##Clone and pull this repository
-> git clone https://github.com/ArcEarth/TangibleHolographicSketch.git<br/>
+> git clone this_repo<br/>
 > git submodule init DirectXTK<br/>
 > git submodule update<br/>
 
@@ -15,11 +15,9 @@ if you encounter a problem, email Arc.
 
 ##Platform/Compilier
 * Windows 8.1+, best with Windows 10
-* Visual Studio 2015 (VC++ 14), best with Update 2
+* Visual Studio 2015 (VC++ 14), best with Update 3
 
 ##SDK and Library and credits
-* Kinect SDK 2.0+ (optional) [download](http://www.microsoft.com/en-us/download/details.aspx?id=44561)
-* Leap SDK 2.31+ (optional) [download](http://1drv.ms/1NYFRGk)
 * FBX SDK 2016+ (included)
 + Eigen 3.2.6+ (included)
 + DirectXTK (git submodule) 
@@ -31,5 +29,3 @@ if you encounter a problem, email Arc.
 
 ##Use Leap Motion or Microsoft Kinect 2
 Define following MARCOS in [Envirument Variable](http://superuser.com/questions/949560/how-do-i-set-system-environment-variables-in-windows-10) $(PATH) 
-* $(LeapSDK_Root) D:\SDKs\LeapSDK
-* $(KINECTSDK20_DIR) C:\Program Files\Microsoft SDKs\Kinect\v2.0_1409\
