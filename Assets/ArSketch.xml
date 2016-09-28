@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="utf-8"?>
+<scene>
+  <scene.settings>
+    <enviroment>
+      <gravity>0,0,0</gravity>
+    </enviroment>
+  </scene.settings>
+  <scene.assets>
+    <mesh name="ceil_mesh" src="ceil.obj" flip_normal="false"></mesh>
+    <mesh name="cube_mesh" src="cube.obj" flip_normal="true"></mesh>
+    <!--<mesh name="mug_mesh" src="Mug.obj"></mesh>
+    <mesh name="table_mesh" src="table.obj"></mesh>-->
+    <!--<mesh name="bottle_mesh" src="wine_bottle.obj"></mesh>-->
+  </scene.assets>
+  <scene.content>
+    <grid name="root">
+
+      <!--<light name="sun_light" primary="false" color="#FFCCBBAA" position="5,25,25" near="8" far="60" focus="0,0,0" up="0,0,-1" hfov="30" wfov="30" aspect="1" perspective="false" drops_shadow="true" resolution="2048" />-->
+      <default_keyboard_shorcuts/>
+
+      <light name="sun_light" primary="false" color="#FF808080" position="2,5,2" near="4" far="8" focus="0,0,0" up="0,0,-1" hfov="2.75" wfov="2.75" aspect="1" perspective="false" drops_shadow="true" resolution="2048" />
+
+      <!--
+      ==== HOW TO SETUP <first_person_keyboard_mouse_control> ====
+      turn_button='0' is left-button
+      turn_button='1' is right-button
+      turn_button='2' is middle-button
+      -->
+      <shadow_camera name="primary_camera" primary="true" background="#FFFFFFFF" position="0,1.7,2.5" focus="0,0,0" up="0,1,0" far="30">
+        <first_person_keyboard_mouse_control turn_button="1" speed="2.0" turing_speed="1.0" flip_x="true" flip_y="true" movement_keys="WASD" />
+      </shadow_camera>
+
+      <!--<hmd_camera name="camera" primary="true" background="#FFFFFFFF" position="0,0,0" focus="0,0,-1" up="0,1,0" ipd="0.065" fov="23" far="100" perspective="true">
+        <first_person_keyboard_mouse_control />
+        <tracked_object name="camera_tracker" index="0"  translation="( 0.007, 0.036,-0.060)" rotation="{-0.705, 0.091, 0.092,-0.697}"/>
+      </hmd_camera>-->
+
+      <!--<skydome name="sky" background="Sunny_01B.dds"/>-->
+
+      <coordinate_axis max="3" zx="true"/>
+
+      <!--<object name="table" position="0,0.0,0" scale="1.0,1.0,1.0" mesh="{table_mesh}"/>-->
+
+      <object name="workspace" position="0,-0.01,0" scale="2.0,0.005,2.0" mesh="{cube_mesh}"/>
+
+      <object name="workload" mesh="{ceil_mesh}">
+        <surface_inspector  tessellation="10" patch_size="0.15">
+          <tracked_pen name="pointer" device="pointer" index="-1" tip_dir="0.0,0,1.0">
+            <coordinate_axis max="0.03"/>
+          </tracked_pen>
+        </surface_inspector>
+        <coordinate_axis max="2"/>
+      </object>
+      
+      <!--
+      !IMPORTANT! 
+      ==== HOW TO SETUP <tracked_pen> ====
+      when streaming from vicon, set proper device="vicon/leap/pointer" tip_dir (last demo is (-1,0,0)), set proper tracker index
+      when using with mouse cursor, set set tip_dir to (0,0,1), set index to -1 to use primary mouse,
+      set index to zero or positive values for indientify multiple mouse devices-->
+      
+      <!--<object name="mug2" visible="true" position="0,0.5,0" scale="0.0352035" mesh="{mug_mesh}">
+        <coordinate_axis max="2"/>
+
+        <tracked_object name="mug_tracker" index="0" translation="-0.007,-0.000,-0.049" rotation="{-0.638,-0.278,-0.307,-0.649}" />
+        <pen_modeler name="pen">
+          <tracked_pen name="pen_tracker" index="1" tip_dir="0.0,0,-1.0" translation="0.051,-0.090,-0.013" rotation="{0.345,0.605,0.626,0.351}"></tracked_pen>
+          <coordinate_axis max="2"/>
+        </pen_modeler>
+      </object>-->
+
+    </grid>
+  </scene.content>
+</scene>
