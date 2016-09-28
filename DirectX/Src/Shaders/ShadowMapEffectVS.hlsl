@@ -66,6 +66,17 @@ void SkinVertexTexBump(inout VSInputTexTangentWeights vin, uniform int boneCount
 	SkinVertexWithNormalTagent;
 }
 
+HSInputNoTex VS_TessNoBoneNoTex(VSInputNoTex vin)
+{
+}
+HSInputNoTex VS_TessOneBoneNoTex(VSInputNoTexWeights vin)
+{
+	SkinVertexNoTex(vin, 1);
+}
+HSInputNoTex VS_TessFourBoneNoTex(VSInputNoTexWeights vin)
+{
+	SkinVertexNoTex(vin, 4);
+}
 
 PSInputOneLightNoTex VS_OneLightNoBoneNoTex(VSInputNoTex vin)
 {
