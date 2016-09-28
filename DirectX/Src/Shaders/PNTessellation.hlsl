@@ -26,13 +26,13 @@ struct HS_CONSTANT_DATA_OUTPUT
 
 inline float _wij(PSInputOneLightTex vi, PSInputOneLightTex vj)
 {
-	return (dot(vj.pos - vi.pos, vi.normal));
+	return (dot(vj.vPosition - vi.vPosition, vi.vNormal));
 }
  
 inline float _vij(PSInputOneLightTex vi, PSInputOneLightTex vj)
 {
-	float3 Pj_minus_Pi = vi.pos - vj.pos;
-	float3 Ni_plus_Nj = vi.normal + vj.normal;
+	float3 Pj_minus_Pi = vi.vPosition - vj.vPosition;
+	float3 Ni_plus_Nj = vi.vNormal + vj.vNormal;
 	return 2.0 * dot(Pj_minus_Pi, Ni_plus_Nj) / dot(Pj_minus_Pi, Pj_minus_Pi);
 }
 
@@ -53,12 +53,12 @@ HS_CONSTANT_DATA_OUTPUT CalcHSPatchConstants(
 	Output.InsideTessFactor = 15; // e.g. could calculate dynamic tessellation factors instead
 
 	// set base 
-	float3 P0 = ip[0].pos;
-	float3 P1 = ip[1].pos;
-	float3 P2 = ip[2].pos;
-	float3 N0 = ip[0].normal;
-	float3 N1 = ip[1].normal;
-	float3 N2 = ip[2].normal;
+	float3 P0 = ip[0].vPosition;
+	float3 P1 = ip[1].vPosition;
+	float3 P2 = ip[2].vPosition;
+	float3 N0 = ip[0].vNormal;
+	float3 N1 = ip[1].vNormal;
+	float3 N2 = ip[2].vNormal;
  
  // compute control points
 	Output.b210 = (2.0 * P0 + P1 - wij(0, 1) * N0) / 3.0;
@@ -86,49 +86,49 @@ HS_CONSTANT_DATA_OUTPUT CalcHSPatchConstants(
 [outputtopology("triangle_cw")]
 [outputcontrolpoints(3)]
 [patchconstantfunc("CalcHSPatchConstants")]
-PSInputOneLightTex main(
+HS_CONTROL_POINT_OUTPUT main(
 	InputPatch<PSInputOneLightTex, NUM_CONTROL_POINTS> ip,
 	uint i : SV_OutputControlPointID,
 	uint PatchID : SV_PrimitiveID)
 {
-	PSInputOneLightTex Output;
+	HS_CONTROL_POINT_OUTPUT Output;
 
 	// Insert code to compute Output here
-	Output.pos = ip[i].pos;
-	Output.normal = ip[i].normal;
-	Output.uv = ip[i].uv;
+	Output.vPosition = ip[i].vPosition;
+	Output.vNormal = ip[i].vNormal;
+	Output.UV = ip[i].UV;
 
 	return Output;
 }
 
 [domain("tri")]
-PSInputOneLightTex PN_DS(
+DS_OUTPUT PN_DS(
 	HS_CONSTANT_DATA_OUTPUT input,
 	float3 uvw : SV_DomainLocation,
-	const OutputPatch<PSInputOneLightTex, NUM_CONTROL_POINTS> patch)
+	const OutputPatch<HS_CONTROL_POINT_OUTPUT, NUM_CONTROL_POINTS> patch)
 {
-	PSInputOneLightTex Output;
+	DS_OUTPUT Output;
 
 	float3 uvw2 = uvw * uvw; // uvw squared
 	float3 uvw3 = uvw2 * uvw; // uvw cubic
-	float3 n200 = patch[0].normal;
-	float3 n020 = patch[1].normal;
-	float3 n002 = patch[2].normal;
-	float3 b300 = patch[0].pos;
-	float3 b030 = patch[1].pos;
-	float3 b003 = patch[2].pos;
+	float3 n200 = patch[0].vNormal;
+	float3 n020 = patch[1].vNormal;
+	float3 n002 = patch[2].vNormal;
+	float3 b300 = patch[0].vPosition;
+	float3 b030 = patch[1].vPosition;
+	float3 b003 = patch[2].vPosition;
 
 	// normal
-	float3 barNormal = uvw[2] * patch[0].normal
-				+ uvw[0] * patch[1].normal
-				+ uvw[1] * patch[2].normal;
+	float3 barNormal = uvw[2] * patch[0].vNormal
+				+ uvw[0] * patch[1].vNormal
+				+ uvw[1] * patch[2].vNormal;
 	float3 pnNormal = n200 * uvw2[2]
 				+ n020 * uvw2[0]
 				+ n002 * uvw2[1]
 				+ input.n110 * uvw[2] * uvw[0]
 				+ input.n011 * uvw[0] * uvw[1]
 				+ input.n101 * uvw[2] * uvw[1];
-	Output.normal = lerp(barNormal, pnNormal, TessellationAlpha);
+	Output.vNormal = lerp(barNormal, pnNormal, TessellationAlpha);
  
 	// compute interpolated pos
 	float3 barPos = uvw[2] * b300
@@ -153,10 +153,9 @@ PSInputOneLightTex PN_DS(
 	// final position and normal
 	float3 finalPos = lerp(barPos, pnPos, TessellationAlpha);
 
-	Output.pos = mul(float4(finalPos, 1.0), ViewProjection);
+	Output.vPosition = mul(float4(finalPos, 1.0), ViewProjection);
 
-	Output.uv = uvw[2] * patch[0].uv + uvw[0] * patch[1].uv + uvw[1] * patch[2].uv;
-	Output.lightUv[0] = uvw[2] * patch[0].lightUv[0] + uvw[0] * patch[1].lightUv[0] + uvw[1] * patch[2].lightUv[0];
+	Output.UV = uvw[2] * patch[0].UV + uvw[0] * patch[1].UV + uvw[1] * patch[2].UV;
 
 	return Output;
 }
