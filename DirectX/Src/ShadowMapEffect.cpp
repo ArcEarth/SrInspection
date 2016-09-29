@@ -2,6 +2,7 @@
 #include "ShadowMapEffect.h"
 #include "EffectCommon.h"
 #include <CommonStates.h>
+#include "DemandCreate.h"
 
 using namespace DirectX;
 
@@ -31,6 +32,10 @@ struct ShadowMapEffectTraits
 	static const int VertexShaderCount = 16;  // 4 + 4 + 12
 	static const int PixelShaderCount = 11;	// 2 + 2 + 3
 	static const int ShaderPermutationCount = 24; // 6 + 6 + 12
+	static const int GeometryShaderCount = 1;
+	static const int HullShaderCount = 1;
+	static const int DomainShaderCount = 1;
+
 
 	static const int TexturePermCount = 4; // NoTex,Tex,TexBump,TexBumpSpe
 	static const int LightPermCount = 1;
@@ -94,9 +99,35 @@ namespace
 #include "Shaders/Windows/ShadowMapEffectPS_PS_ScreenSpaceTex.inc"
 #include "Shaders/Windows/ShadowMapEffectPS_PS_ScreenSpaceTexBump.inc"
 
+#include "Shaders/Windows/PNTessellation_PN_HS_Tex.inc"
+#include "Shaders/Windows/PNTessellation_PN_DS_OneLightTex.inc"
 #endif
 }
 
+ID3D11HullShader*	EffectDeviceResources::DemandCreateHullShader(_Inout_ Microsoft::WRL::ComPtr<ID3D11HullShader>& hullShader, ShaderBytecode const& bytecode)
+{
+	return DemandCreate(hullShader, mMutex, [&](ID3D11HullShader** pResult) -> HRESULT
+	{
+		HRESULT hr = mDevice->CreateHullShader(bytecode.code, bytecode.length, nullptr, pResult);
+
+		if (SUCCEEDED(hr))
+			SetDebugObjectName(*pResult, "DirectXTK:Effect");
+
+		return hr;
+	});
+}
+ID3D11DomainShader* EffectDeviceResources::DemandCreateDomainlShader(_Inout_ Microsoft::WRL::ComPtr<ID3D11DomainShader> & domainShader, ShaderBytecode const& bytecode)
+{
+	return DemandCreate(domainShader, mMutex, [&](ID3D11DomainShader** pResult) -> HRESULT
+	{
+		HRESULT hr = mDevice->CreateDomainShader(bytecode.code, bytecode.length, nullptr, pResult);
+
+		if (SUCCEEDED(hr))
+			SetDebugObjectName(*pResult, "DirectXTK:Effect");
+
+		return hr;
+	});
+}
 
 typedef ShadowMapEffectTraits			EffectTraitsType;
 typedef EffectBase<EffectTraitsType>	EffectBaseType;
@@ -110,13 +141,16 @@ inline ShaderBytecode MakeShaderByteCode(const BYTE(&bytecode)[Size])
 }
 
 
-//const ShaderBytecode EffectBaseType::VertexShaderBytecode[] =
-//{
-//	MakeShaderByteCode(ShadowMapEffectVS_VS_OneLightNoBoneNoTex),
-//	MakeShaderByteCode(ShadowMapEffectVS_VS_OneLightNoBoneTex),
-//	MakeShaderByteCode(ShadowMapEffectVS_VS_OneLightFourBoneNoTex),
-//	MakeShaderByteCode(ShadowMapEffectVS_VS_OneLightFourBoneTex),
-//};
+const ShaderBytecode EffectBaseType::HullShaderBytecode[] =
+{
+	MakeShaderByteCode(PNTessellation_PN_HS_Tex),
+};
+
+const ShaderBytecode EffectBaseType::DomainShaderBytecode[] =
+{
+	MakeShaderByteCode(PNTessellation_PN_DS_OneLightTex),
+};
+
 const ShaderBytecode EffectBaseType::VertexShaderBytecode[] =
 {
 	MakeShaderByteCode(ShadowMapEffectVS_VS_OneLightNoBoneNoTex),
@@ -674,4 +708,12 @@ void XM_CALLCONV ShadowMapEffect::SetLightProjection(int whichLight, FXMMATRIX v
 {
 	pImpl->lights[whichLight].Projection = value;
 	pImpl->dirtyFlags |= EffectDirtyFlags::LightsViewProjection;
+}
+
+void __cdecl ShadowMapEffect::EnableTessellation(bool enable, float screen_space_triangle_size)
+{
+}
+
+void ShadowMapEffect::SetDisplacementMap(ID3D11ShaderResourceView * pTexture)
+{
 }

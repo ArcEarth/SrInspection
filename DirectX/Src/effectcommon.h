@@ -132,7 +132,9 @@ namespace DirectX
 
         ID3D11VertexShader* DemandCreateVertexShader(_Inout_ Microsoft::WRL::ComPtr<ID3D11VertexShader>& vertexShader, ShaderBytecode const& bytecode);
         ID3D11PixelShader * DemandCreatePixelShader (_Inout_ Microsoft::WRL::ComPtr<ID3D11PixelShader> & pixelShader,  ShaderBytecode const& bytecode);
-        ID3D11ShaderResourceView* GetDefaultTexture();
+		ID3D11HullShader*	DemandCreateHullShader(_Inout_ Microsoft::WRL::ComPtr<ID3D11HullShader>& hullShader, ShaderBytecode const& bytecode);
+		ID3D11DomainShader* DemandCreateDomainlShader(_Inout_ Microsoft::WRL::ComPtr<ID3D11DomainShader> & domainShader, ShaderBytecode const& bytecode);
+		ID3D11ShaderResourceView* GetDefaultTexture();
 
     protected:
         Microsoft::WRL::ComPtr<ID3D11Device> mDevice;
@@ -216,8 +218,15 @@ namespace DirectX
         static const ShaderBytecode VertexShaderBytecode[Traits::VertexShaderCount];
         static const ShaderBytecode PixelShaderBytecode[Traits::PixelShaderCount];
 
+		static const ShaderBytecode GeometryShaderBytecode[Traits::GeometryShaderCount];
+		static const ShaderBytecode HullShaderBytecode[Traits::HullShaderCount];
+		static const ShaderBytecode DomainShaderBytecode[Traits::DomainShaderCount];
+
         static const int VertexShaderIndices[Traits::ShaderPermutationCount];
         static const int PixelShaderIndices[Traits::ShaderPermutationCount];
+		static const int GeometryShaderIndices[Traits::ShaderPermutationCount];
+		static const int HullShaderIndices[Traits::ShaderPermutationCount];
+		static const int DomainShaderIndices[Traits::ShaderPermutationCount];
 
     private:
         // D3D constant buffer holds a copy of the same data as the public 'constants' field.
@@ -255,9 +264,12 @@ namespace DirectX
 
 
         private:
-            Microsoft::WRL::ComPtr<ID3D11VertexShader> mVertexShaders[Traits::VertexShaderCount];
-            Microsoft::WRL::ComPtr<ID3D11PixelShader> mPixelShaders[Traits::PixelShaderCount];
-        };
+			Microsoft::WRL::ComPtr<ID3D11VertexShader>	mVertexShaders[Traits::VertexShaderCount];
+			Microsoft::WRL::ComPtr<ID3D11PixelShader>	mPixelShaders[Traits::PixelShaderCount];
+			Microsoft::WRL::ComPtr<ID3D11GeometryShader>mGeometryShaders[Traits::GeometryShaderCount];
+			Microsoft::WRL::ComPtr<ID3D11HullShader>	mHullShaders[Traits::HullShaderCount];
+			Microsoft::WRL::ComPtr<ID3D11DomainShader>	mDomainShaders[Traits::DomainShaderCount];
+		};
 
 
         // Per-device resources.

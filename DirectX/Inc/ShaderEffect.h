@@ -11,7 +11,7 @@
 
 namespace DirectX
 {
-	class IEffectPhongMaterial
+	class IEffectPhongMaterial abstract
 	{
 	public:
 		// Material settings.
@@ -26,6 +26,12 @@ namespace DirectX
 		virtual void __cdecl SetDiffuseMap(ID3D11ShaderResourceView* pTexture) = 0;
 		virtual void __cdecl SetNormalMap(ID3D11ShaderResourceView* pTexture) = 0;
 		virtual void __cdecl SetSpecularMap(ID3D11ShaderResourceView* pTexture) = 0;
+	};
+
+	class IEffectTessellation abstract
+	{
+		virtual void __cdecl EnableTessellation(bool enable, float screen_space_triangle_size = 0) = 0;
+		virtual void __cdecl SetDisplacementMap(ID3D11ShaderResourceView* pTexture) = 0;
 	};
 
 	class IEffectLightsShadow abstract : public IEffectLights
@@ -49,7 +55,7 @@ namespace DirectX
 	};
 
 	// An base class for customized shader effect, will handel the loading of shaders
-	class IShaderEffect
+	class IShaderEffect abstract
 	{
 	public:
 		virtual ~IShaderEffect() { }

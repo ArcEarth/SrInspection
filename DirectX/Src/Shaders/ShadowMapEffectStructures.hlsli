@@ -1,10 +1,10 @@
-struct HSInputNoTex
+struct HSControlPointNoTex
 {
 	float3 Position : WORLDPOS;
 	float3 Normal   : NORMAL;
 };
 
-struct HSInputTex
+struct HSControlPointTex
 {
 	float3 Position : WORLDPOS;
 	float3 Normal   : NORMAL;
@@ -58,8 +58,8 @@ struct PSInputOneLightTex
 	float4 pos : SV_POSITION;
 	float2 uv : TEXCOORD0;
 	float3 normal : NORMAL;
-	float3 toEye : TEXCOORD2;
-	float4 lightUv[1] : TEXCOORD3;
+	float3 toEye : TEXCOORD1;
+	float4 lightUv[1] : TEXCOORD2;
 };
 
 struct PSInputOneLightTexBump

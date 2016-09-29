@@ -63,6 +63,13 @@ call :CompileShaderHLSL%platform% ShadowMapEffectVS vs VS_OneLightFourBoneNoTex
 call :CompileShaderHLSL%platform% ShadowMapEffectVS vs VS_OneLightFourBoneTex
 call :CompileShaderHLSL%platform% ShadowMapEffectVS vs VS_OneLightFourBoneTexBump
 
+call :CompileShaderHLSL%platform% ShadowMapEffectVS vs VS_TessNoBoneNoTex
+call :CompileShaderHLSL%platform% ShadowMapEffectVS vs VS_TessOneBoneNoTex
+call :CompileShaderHLSL%platform% ShadowMapEffectVS vs VS_TessFourBoneNoTex
+call :CompileShaderHLSL%platform% ShadowMapEffectVS vs VS_TessNoBoneTex
+call :CompileShaderHLSL%platform% ShadowMapEffectVS vs VS_TessOneBoneTex
+call :CompileShaderHLSL%platform% ShadowMapEffectVS vs VS_TessFourBoneTex
+
 call :CompileShaderHLSL%platform% ShadowMapEffectVS vs VS_ScreenSpaceNoBoneNoTex
 call :CompileShaderHLSL%platform% ShadowMapEffectVS vs VS_ScreenSpaceNoBoneTex
 call :CompileShaderHLSL%platform% ShadowMapEffectVS vs VS_ScreenSpaceNoBoneTexBump
@@ -81,6 +88,11 @@ call :CompileShaderHLSL%platform% ShadowMapEffectVS vs VS_BinaryOneLightNoBoneTe
 call :CompileShaderHLSL%platform% ShadowMapEffectVS vs VS_BinaryOneLightFourBoneNoTex
 call :CompileShaderHLSL%platform% ShadowMapEffectVS vs VS_BinaryOneLightFourBoneTex
 
+goto finish
+
+:PNTessellation
+call :CompileShaderHLSL%platform% PNTessellation hs PN_HS_Tex
+call :CompileShaderHLSL%platform% PNTessellation ds PN_DS_OneLightTex
 goto finish
 
 :ShadowMapEffectPS

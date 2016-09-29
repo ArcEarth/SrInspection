@@ -66,16 +66,53 @@ void SkinVertexTexBump(inout VSInputTexTangentWeights vin, uniform int boneCount
 	SkinVertexWithNormalTagent;
 }
 
-HSInputNoTex VS_TessNoBoneNoTex(VSInputNoTex vin)
+#define PASSBY_HS_PN \
+    vout.Normal = vin.Normal; \
+    vout.Position = vin.Position.xyz;
+
+#define PASSBY_HS_PNT \
+	PASSBY_HS_PN \
+	vout.TexCoord = vin.TexCoord;
+
+HSControlPointNoTex VS_TessNoBoneNoTex(VSInputNoTex vin)
 {
+    HSControlPointNoTex vout;
+    PASSBY_HS_PN;
+    return vout;
 }
-HSInputNoTex VS_TessOneBoneNoTex(VSInputNoTexWeights vin)
+HSControlPointNoTex VS_TessOneBoneNoTex(VSInputNoTexWeights vin)
 {
 	SkinVertexNoTex(vin, 1);
+    HSControlPointNoTex vout;
+    PASSBY_HS_PN;
+    return vout;
 }
-HSInputNoTex VS_TessFourBoneNoTex(VSInputNoTexWeights vin)
+HSControlPointNoTex VS_TessFourBoneNoTex(VSInputNoTexWeights vin)
 {
 	SkinVertexNoTex(vin, 4);
+    HSControlPointNoTex vout;
+    PASSBY_HS_PN;
+    return vout;
+}
+HSControlPointTex VS_TessNoBoneTex(VSInputTex vin)
+{
+    HSControlPointTex vout;
+    PASSBY_HS_PNT;
+    return vout;
+}
+HSControlPointTex VS_TessOneBoneTex(VSInputTexWeights vin)
+{
+    SkinVertexTex(vin, 1);
+    HSControlPointTex vout;
+    PASSBY_HS_PNT;
+    return vout;
+}
+HSControlPointTex VS_TessFourBoneTex(VSInputTexWeights vin)
+{
+    SkinVertexTex(vin, 4);
+    HSControlPointTex vout;
+    PASSBY_HS_PNT;
+    return vout;
 }
 
 PSInputOneLightNoTex VS_OneLightNoBoneNoTex(VSInputNoTex vin)

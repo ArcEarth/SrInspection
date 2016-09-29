@@ -38,6 +38,9 @@ struct ShadowMapGenerationEffectTraits
 	static const int VertexShaderCount = 11;
 	static const int PixelShaderCount = 5;
 	static const int ShaderPermutationCount = 16 + 3;
+	static const int GeometryShaderCount = 1;
+	static const int HullShaderCount = 1;
+	static const int DomainShaderCount = 1;
 };
 
 typedef ShadowMapGenerationEffectTraits			EffectTraitsType;

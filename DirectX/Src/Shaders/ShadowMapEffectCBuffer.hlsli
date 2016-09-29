@@ -1,6 +1,10 @@
 #define MAX_LIGHTS 4
 #define MAX_BONES 72
 
+#ifndef REGISTER
+#define REGISTER(b)
+#endif
+
 cbuffer ShadowMapEffectCBuffer REGISTER(b0)
 {
 	float4x4 World;

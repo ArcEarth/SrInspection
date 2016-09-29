@@ -363,10 +363,8 @@
     <CustomBuild Include="Src\Shaders\SkydomeEffect.hlsl">
       <Filter>Shaders</Filter>
     </CustomBuild>
-  </ItemGroup>
-  <ItemGroup>
-    <FxCompile Include="Src\Shaders\PNTessellation.hlsl">
+    <CustomBuild Include="Src\Shaders\PNTessellation.hlsl">
       <Filter>Shaders</Filter>
-    </FxCompile>
+    </CustomBuild>
   </ItemGroup>
 </Project>
