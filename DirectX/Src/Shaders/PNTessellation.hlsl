@@ -41,6 +41,7 @@ inline float _vij(HSControlPointTex vi, HSControlPointTex vj)
 #define wij(I, J) _wij(ip[I], ip[J])
 #define vij(I, J) _vij(ip[I], ip[J])
 
+//void CaculatePNControlPoints(inout HS_CONSTANT_DATA_OUTPUT Output, float3 P0, float3 P1, float3 P2, float3 N0, float3 N1, float3 N2){}
 // Patch Constant Function
 HS_CONSTANT_DATA_OUTPUT CalcHSPatchConstants(
 	InputPatch<HSControlPointTex, NUM_CONTROL_POINTS> ip,
@@ -48,35 +49,37 @@ HS_CONSTANT_DATA_OUTPUT CalcHSPatchConstants(
 {
 	HS_CONSTANT_DATA_OUTPUT Output;
 
-	// Insert code to compute Output here
-	Output.EdgeTessFactor[0] =
-	Output.EdgeTessFactor[1] =
-	Output.EdgeTessFactor[2] =
-	Output.InsideTessFactor = 15; // e.g. could calculate dynamic tessellation factors instead
-
 	// set base 
 	float3 P0 = ip[0].Position;
 	float3 P1 = ip[1].Position;
 	float3 P2 = ip[2].Position;
-	float3 N0 = ip[0].Normal;
-	float3 N1 = ip[1].Normal;
-	float3 N2 = ip[2].Normal;
+	float3 N0 = normalize(ip[0].Normal);
+	float3 N1 = normalize(ip[1].Normal);
+	float3 N2 = normalize(ip[2].Normal);
+
+	float4 sp0 = mul(float4(P0, 1.0f), ViewProjection);
+	float4 sp1 = mul(float4(P1, 1.0f), ViewProjection);
+	float4 sp2 = mul(float4(P2, 1.0f), ViewProjection);
+	sp0 /= sp0.w;
+	sp1 /= sp1.w;
+	sp2 /= sp2.w;
+	
+	// Caculate tessellation factor based on screen-space distance
+	Output.EdgeTessFactor[0] = min(TessellationFactor, dot(abs(sp1.xy - sp2.xy), TessellationScreenFactor));
+	Output.EdgeTessFactor[1] = min(TessellationFactor, dot(abs(sp2.xy - sp0.xy), TessellationScreenFactor));
+	Output.EdgeTessFactor[2] = min(TessellationFactor, dot(abs(sp0.xy - sp1.xy), TessellationScreenFactor));
+	Output.InsideTessFactor = (Output.EdgeTessFactor[0] + Output.EdgeTessFactor[1] + Output.EdgeTessFactor[2])/3.0f;
  
- // compute control points
-	Output.b210 = (2.0 * P0 + P1 - wij(0, 1) * N0) / 3.0;
-	Output.b120 = (2.0 * P1 + P0 - wij(1, 0) * N1) / 3.0;
-	Output.b021 = (2.0 * P1 + P2 - wij(1, 2) * N1) / 3.0;
-	Output.b012 = (2.0 * P2 + P1 - wij(2, 1) * N2) / 3.0;
-	Output.b102 = (2.0 * P2 + P0 - wij(2, 0) * N2) / 3.0;
-	Output.b201 = (2.0 * P0 + P2 - wij(0, 2) * N0) / 3.0;
-	float3 E = (Output.b210
-		   + Output.b120
-		   + Output.b021
-		   + Output.b012
-		   + Output.b102
-		   + Output.b201) / 6.0;
-	float3 V = (P0 + P1 + P2) / 3.0;
-	Output.b111 = E + (E - V) * 0.5;
+	// compute control points
+	Output.b210 = (2.0f * P0 + P1 - wij(0, 1) * N0) / 3.0f;
+	Output.b120 = (2.0f * P1 + P0 - wij(1, 0) * N1) / 3.0f;
+	Output.b021 = (2.0f * P1 + P2 - wij(1, 2) * N1) / 3.0f;
+	Output.b012 = (2.0f * P2 + P1 - wij(2, 1) * N2) / 3.0f;
+	Output.b102 = (2.0f * P2 + P0 - wij(2, 0) * N2) / 3.0f;
+	Output.b201 = (2.0f * P0 + P2 - wij(0, 2) * N0) / 3.0f;
+	float3 E = (Output.b210 + Output.b120 + Output.b021 + Output.b012 + Output.b102 + Output.b201) / 6.0f;
+	float3 V = (P0 + P1 + P2) / 3.0f;
+	Output.b111 = E + (E - V) * 0.5f;
 	Output.n110 = N0 + N1 - vij(0, 1) * (P1 - P0);
 	Output.n011 = N1 + N2 - vij(1, 2) * (P2 - P1);
 	Output.n101 = N2 + N0 - vij(2, 0) * (P0 - P2);
@@ -130,7 +133,7 @@ PSInputOneLightTex PN_DS_OneLightTex(
 				+ input.n110 * uvw[2] * uvw[0]
 				+ input.n011 * uvw[0] * uvw[1]
 				+ input.n101 * uvw[2] * uvw[1];
-    vout.normal = lerp(barNormal, pnNormal, TessellationAlpha);
+	vout.normal = lerp(barNormal, pnNormal, TessellationAlpha);
  
 	// compute interpolated pos
 	float3 barPos = uvw[2] * b300
@@ -153,7 +156,7 @@ PSInputOneLightTex PN_DS_OneLightTex(
 			 + input.b111 * 6.0 * uvw[0] * uvw[1] * uvw[2];
  
 	// final position and normal
-    float4 posWorld = float4(lerp(barPos, pnPos, TessellationAlpha),1.0f);
+	float4 posWorld = float4(lerp(barPos, pnPos, TessellationAlpha),1.0f);
 
     vout.pos = mul(posWorld, ViewProjection);
 

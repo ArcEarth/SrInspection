@@ -65,6 +65,9 @@
     <ClInclude Include="Primitives.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="bvh_deprecated.h">
+      <Filter>Source Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="Primitives.inl">

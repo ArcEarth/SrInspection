@@ -67,8 +67,8 @@ void SkinVertexTexBump(inout VSInputTexTangentWeights vin, uniform int boneCount
 }
 
 #define PASSBY_HS_PN \
-    vout.Normal = vin.Normal; \
-    vout.Position = vin.Position.xyz;
+    vout.Normal = mul(vin.Normal, (float3x3)World); \
+    vout.Position = mul(vin.Position,World).xyz;
 
 #define PASSBY_HS_PNT \
 	PASSBY_HS_PN \

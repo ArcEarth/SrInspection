@@ -95,8 +95,12 @@ void MeshBuffer::Draw(ID3D11DeviceContext *pContext, IEffect *pEffect) const
 
 	//if (pEffect)
 	//	pEffect->Apply(pContext);
-
-	pContext->IASetPrimitiveTopology(PrimitiveType);
+	ComPtr<ID3D11HullShader> hs;
+	pContext->HSGetShader(&hs,nullptr,nullptr);
+	auto primitive = PrimitiveType;
+	if (hs)
+		primitive = D3D11_PRIMITIVE_TOPOLOGY_3_CONTROL_POINT_PATCHLIST;
+	pContext->IASetPrimitiveTopology(primitive);
 
 	if (pIndexBuffer)
 	{

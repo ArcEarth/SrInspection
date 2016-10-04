@@ -2,6 +2,7 @@
 # File Created: 17.05.2016 19:10:55
 
 newmtl wire_143225087
+	map_Kd CheckerBoard.dds
 	Ns 32
 	d 1
 	Tr 0

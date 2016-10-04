@@ -50,6 +50,20 @@ SharedResourcePool<ID3D11Device*, EffectBaseType::DeviceResources> EffectBaseTyp
 
 using Microsoft::WRL::ComPtr;
 
+int EffectBaseType::HullShaderIndices[] = { -1, -1,-1, -1,-1, -1,-1, -1,-1, -1,-1, -1,-1, -1,-1, -1,-1, -1,-1 };
+int EffectBaseType::DomainShaderIndices[] = { -1, -1,-1, -1,-1, -1,-1, -1,-1, -1,-1, -1,-1, -1,-1, -1,-1, -1,-1 };
+
+const ShaderBytecode EffectBaseType::HullShaderBytecode[] =
+{
+	ShaderBytecode {nullptr,0},
+};
+
+const ShaderBytecode EffectBaseType::DomainShaderBytecode[] =
+{
+	ShaderBytecode{ nullptr,0 },
+};
+
+
 _MM_ALIGN16
 class ShadowMapGenerationEffect::Impl : public EffectBaseType
 {
@@ -67,29 +81,29 @@ public:
 	typedef EffectBaseType		Base;
 
 	Impl(ID3D11Device* device)
-			: EffectBase(device),
-			commonStates(device),
-			weightsPerVertex(0),
-			fillMode(DepthFill),
-			pRenderTargetView(NULL),
-			pDepthMap(NULL),
-			boneColorsBuffer(device)
+		: EffectBase(device),
+		commonStates(device),
+		weightsPerVertex(0),
+		fillMode(DepthFill),
+		pRenderTargetView(NULL),
+		pDepthMap(NULL),
+		boneColorsBuffer(device)
+	{
+		auto addr = (uintptr_t)&constants.WorldLightProj;
+		assert((addr & 0xf) == 0);
+
+		static_assert(_countof(Base::VertexShaderIndices) == Traits::ShaderPermutationCount, "array/max mismatch");
+		static_assert(_countof(Base::VertexShaderBytecode) == Traits::VertexShaderCount, "array/max mismatch");
+		static_assert(_countof(Base::PixelShaderBytecode) == Traits::PixelShaderCount, "array/max mismatch");
+		static_assert(_countof(Base::PixelShaderIndices) == Traits::ShaderPermutationCount, "array/max mismatch");
+
+		XMMATRIX id = XMMatrixIdentity();
+
+		for (size_t i = 0; i < MaxBones; ++i)
 		{
-			auto addr = (uintptr_t)&constants.WorldLightProj;
-			assert((addr & 0xf) == 0);
-
-			static_assert(_countof(Base::VertexShaderIndices) == Traits::ShaderPermutationCount, "array/max mismatch");
-			static_assert(_countof(Base::VertexShaderBytecode) == Traits::VertexShaderCount, "array/max mismatch");
-			static_assert(_countof(Base::PixelShaderBytecode) == Traits::PixelShaderCount, "array/max mismatch");
-			static_assert(_countof(Base::PixelShaderIndices) == Traits::ShaderPermutationCount, "array/max mismatch");
-
-			XMMATRIX id = XMMatrixIdentity();
-
-			for (size_t i = 0; i < MaxBones; ++i)
-			{
-				XMStoreFloat3x4(&constants.Bones[i], id);
-			}
+			XMStoreFloat3x4(&constants.Bones[i], id);
 		}
+	}
 
 	int GetCurrentShaderPermutation() const
 	{

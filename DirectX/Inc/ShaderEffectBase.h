@@ -125,6 +125,10 @@ namespace DirectX
 				pDeviceContext->GSSetConstantBuffers(0, 1, &cbuffer);
 				pDeviceContext->GSSetShader(m_pGeometryShader.Get(), nullptr, 0);
 			}
+			if (!m_pHullShader || !m_pDomainShader){
+				pDeviceContext->HSSetShader(nullptr, nullptr, 0);
+				pDeviceContext->DSSetShader(nullptr, nullptr, 0);
+			}
 			pDeviceContext->PSSetShader(m_pPixelShader.Get(), nullptr, 0);
 			pDeviceContext->PSSetConstantBuffers(0, 1, &cbuffer);
 		}
@@ -144,6 +148,8 @@ namespace DirectX
 		Microsoft::WRL::ComPtr<ID3D11VertexShader>		m_pVertexShader;
 		Microsoft::WRL::ComPtr<ID3D11GeometryShader>	m_pGeometryShader;
 		Microsoft::WRL::ComPtr<ID3D11PixelShader>		m_pPixelShader;
+		Microsoft::WRL::ComPtr<ID3D11GeometryShader>	m_pHullShader;
+		Microsoft::WRL::ComPtr<ID3D11GeometryShader>	m_pDomainShader;
 	};
 
 }

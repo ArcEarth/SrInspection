@@ -133,7 +133,7 @@ namespace DirectX
         ID3D11VertexShader* DemandCreateVertexShader(_Inout_ Microsoft::WRL::ComPtr<ID3D11VertexShader>& vertexShader, ShaderBytecode const& bytecode);
         ID3D11PixelShader * DemandCreatePixelShader (_Inout_ Microsoft::WRL::ComPtr<ID3D11PixelShader> & pixelShader,  ShaderBytecode const& bytecode);
 		ID3D11HullShader*	DemandCreateHullShader(_Inout_ Microsoft::WRL::ComPtr<ID3D11HullShader>& hullShader, ShaderBytecode const& bytecode);
-		ID3D11DomainShader* DemandCreateDomainlShader(_Inout_ Microsoft::WRL::ComPtr<ID3D11DomainShader> & domainShader, ShaderBytecode const& bytecode);
+		ID3D11DomainShader* DemandCreateDomainShader(_Inout_ Microsoft::WRL::ComPtr<ID3D11DomainShader> & domainShader, ShaderBytecode const& bytecode);
 		ID3D11ShaderResourceView* GetDefaultTexture();
 
     protected:
@@ -189,11 +189,18 @@ namespace DirectX
             // Set shaders.
             auto vertexShader = mDeviceResources->GetVertexShader(permutation);
             auto pixelShader = mDeviceResources->GetPixelShader(permutation);
+			auto hullShader = mDeviceResources->GetHullShader(permutation);
+			auto domainShader = mDeviceResources->GetDomainShader(permutation);
 
-            deviceContext->VSSetShader(vertexShader, nullptr, 0);
+			//assert(hullShader == nullptr);
+			//assert(domainShader == nullptr);
+
+			deviceContext->VSSetShader(vertexShader, nullptr, 0);
             deviceContext->PSSetShader(pixelShader, nullptr, 0);
+			deviceContext->HSSetShader(hullShader, nullptr, 0);
+			deviceContext->DSSetShader(domainShader, nullptr, 0);
 
-            // Make sure the constant buffer is up to date.
+			// Make sure the constant buffer is up to date.
             if (dirtyFlags & EffectDirtyFlags::ConstantBuffer)
             {
                 mConstantBuffer.SetData(deviceContext, constants);
@@ -206,7 +213,11 @@ namespace DirectX
 
             deviceContext->VSSetConstantBuffers(0, 1, &buffer);
             deviceContext->PSSetConstantBuffers(0, 1, &buffer);
-        }
+			if (hullShader)
+				deviceContext->HSSetConstantBuffers(0, 1, &buffer);
+			if (domainShader)
+				deviceContext->DSSetConstantBuffers(0, 1, &buffer);
+		}
 
 
         // Helper returns the default texture.
@@ -224,9 +235,9 @@ namespace DirectX
 
         static const int VertexShaderIndices[Traits::ShaderPermutationCount];
         static const int PixelShaderIndices[Traits::ShaderPermutationCount];
-		static const int GeometryShaderIndices[Traits::ShaderPermutationCount];
-		static const int HullShaderIndices[Traits::ShaderPermutationCount];
-		static const int DomainShaderIndices[Traits::ShaderPermutationCount];
+		static int GeometryShaderIndices[Traits::ShaderPermutationCount];
+		static int HullShaderIndices[Traits::ShaderPermutationCount];
+		static int DomainShaderIndices[Traits::ShaderPermutationCount];
 
     private:
         // D3D constant buffer holds a copy of the same data as the public 'constants' field.
@@ -258,7 +269,22 @@ namespace DirectX
                 return DemandCreatePixelShader(mPixelShaders[shaderIndex], PixelShaderBytecode[shaderIndex]);
             }
 
+			// Gets or lazily creates the specified vertex shader permutation.
+			ID3D11HullShader* GetHullShader(int permutation)
+			{
+				int shaderIndex = HullShaderIndices[permutation];
+				if (shaderIndex == -1) return nullptr;
+				return DemandCreateHullShader(mHullShaders[shaderIndex], HullShaderBytecode[shaderIndex]);
+			}
 
+
+			// Gets or lazily creates the specified pixel shader permutation.
+			ID3D11DomainShader* GetDomainShader(int permutation)
+			{
+				int shaderIndex = DomainShaderIndices[permutation];
+				if (shaderIndex == -1) return nullptr;
+				return DemandCreateDomainShader(mDomainShaders[shaderIndex], DomainShaderBytecode[shaderIndex]);
+			}
             // Gets or lazily creates the default texture
             ID3D11ShaderResourceView* GetDefaultTexture() { return EffectDeviceResources::GetDefaultTexture(); }
 

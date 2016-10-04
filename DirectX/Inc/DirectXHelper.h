@@ -62,37 +62,63 @@ namespace DirectX
 		}
 	}
 #else
-	inline TCHAR* ErrorDescription(HRESULT hr)
+	// Helper class for COM exceptions
+	class com_exception : public std::exception
 	{
-		if (FACILITY_WINDOWS == HRESULT_FACILITY(hr))
-			hr = HRESULT_CODE(hr);
-		static TCHAR szErrMsg[256];
-		static TCHAR dfErrMsg[] = L"Unrecongnized Error Code";
-		auto size = FormatMessage(
-			FORMAT_MESSAGE_FROM_SYSTEM,
-			NULL, hr, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
-			szErrMsg, ARRAYSIZE(szErrMsg), NULL);
+	public:
+		com_exception(HRESULT hr) : result(hr) {}
 
-		if (!size) {
-			//std::string msg(szErrMsg);
-			//LocalFree(szErrMsg);
-			return szErrMsg;
-		}
-		else
+		virtual const char* what() const override
 		{
-			return dfErrMsg;
+			static char s_str[64] = {};
+			sprintf_s(s_str, "Failure with HRESULT of %08X", result);
+			return s_str;
 		}
-	}
+
+	private:
+		HRESULT result;
+	};
+
+	// Helper utility converts D3D API failures into exceptions.
 	inline void ThrowIfFailed(HRESULT hr)
 	{
 		if (FAILED(hr))
 		{
-			auto ErrMsg = ErrorDescription(hr);
-			std::wstring_convert<std::codecvt_utf8<TCHAR>, TCHAR> utfconvt;
-			auto str = utfconvt.to_bytes(ErrMsg);
-			throw std::exception(str.c_str());
+			throw com_exception(hr);
 		}
 	}
+
+
+	// Helper for output debug tracing
+	inline void DebugTrace(_In_z_ _Printf_format_string_ const char* format, ...)
+	{
+#ifdef _DEBUG
+		va_list args;
+		va_start(args, format);
+
+		char buff[1024] = {};
+		vsprintf_s(buff, format, args);
+		OutputDebugStringA(buff);
+		va_end(args);
+#else
+		UNREFERENCED_PARAMETER(format);
+#endif
+	}
+
+
+	// Helper smart-pointers
+#if (_WIN32_WINNT >= _WIN32_WINNT_WIN10) || (defined(_XBOX_ONE) && defined(_TITLE)) || !defined(WINAPI_FAMILY) || (WINAPI_FAMILY == WINAPI_FAMILY_DESKTOP_APP)
+	struct virtual_deleter { void operator()(void* p) { if (p) VirtualFree(p, 0, MEM_RELEASE); } };
+#endif
+
+	struct aligned_deleter { void operator()(void* p) { _aligned_free(p); } };
+
+	struct handle_closer { void operator()(HANDLE h) { if (h) CloseHandle(h); } };
+
+	typedef public std::unique_ptr<void, handle_closer> ScopedHandle;
+
+	inline HANDLE safe_handle(HANDLE h) { return (h == INVALID_HANDLE_VALUE) ? 0 : h; }
+
 #endif
 	// simliar to std::lock_guard for exception-safe Direct3D 11 resource locking
 	class MapGuard : public D3D11_MAPPED_SUBRESOURCE
@@ -379,42 +405,4 @@ namespace DirectX
 		ThrowIfFailed(pDevice->CreateSamplerState(&SamplerDesc, &pSamplerState));
 		return pSamplerState;
 	}
-
-	// Helper smart-pointers
-	struct handle_closer { void operator()(HANDLE h) { if (h) CloseHandle(h); } };
-
-	typedef public std::unique_ptr<void, handle_closer> ScopedHandle;
-
-	inline HANDLE safe_handle(HANDLE h) { return (h == INVALID_HANDLE_VALUE) ? 0 : h; }
-
-
-	template<class T> class ScopedObject
-	{
-	public:
-		explicit ScopedObject(T *p = 0) : _pointer(p) {}
-		~ScopedObject()
-		{
-			if (_pointer)
-			{
-				_pointer->Release();
-				_pointer = nullptr;
-			}
-		}
-
-		bool IsNull() const { return (!_pointer); }
-
-		T& operator*() { return *_pointer; }
-		T* operator->() { return _pointer; }
-		T** operator&() { return &_pointer; }
-
-		void Reset(T *p = 0) { if (_pointer) { _pointer->Release(); } _pointer = p; }
-
-		T* Get() const { return _pointer; }
-
-	private:
-		ScopedObject(const ScopedObject&);
-		ScopedObject& operator=(const ScopedObject&);
-
-		T* _pointer;
-	};
 }
