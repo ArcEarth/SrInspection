@@ -1,4 +1,8 @@
 #pragma once
+#ifndef XM_NAMES
+#define XM_NAMES ::DirectX::
+#endif // !XM_NAMES
+
 #if !defined(_M_ARM) && (defined(__SSE3__) || defined(__SSE4__) || defined(__AVX__) || defined(__AVX2__))
 #ifdef __SSE3__
 #include "DirectXMathSSE3.h"
@@ -24,8 +28,6 @@
 #include "DirectXMathSSE4.h"
 #include "DirectXMathSSE3.h"
 #endif
-
-#define XM_NAMES ::DirectX::
 
 #if defined(__AVX2__)
 // AVX2 Header inlcude a copy of AVX header's swizzle and permute functions
@@ -241,7 +243,7 @@ template<> inline XMVECTOR XM_CALLCONV XMVectorSwizzle<1,1,3,3>(FXMVECTOR V) { r
 #endif
 }
 #else
-#define _DXMEXT
+#define _DXMEXT ::DirectX::
 namespace DirectX
 {
 	template <bool WhichX, bool WhichY, bool WhichZ, bool WhichW>

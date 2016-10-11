@@ -31,6 +31,11 @@ namespace Causality
 			Vector2					m_uvCenter;
 			Vector2					m_uvExtent;
 
+			Geometrics::MeshRayIntersectionInfo m_isInfo;
+			Vector3					m_center;
+			Vector3					m_centerNormal;
+			Vector3					m_extent;
+
 			Vector2					m_uvTranslation;
 			Vector2					m_uvScaling;
 			float					m_uvRotation;
@@ -55,7 +60,8 @@ namespace Causality
 			cptr<ID2D1PathGeometry> m_deaclGeometry;
 			cptr<ID2D1PathGeometry> m_curvHistoGeometry;
 
-			std::vector<int>		m_areVertices;
+			std::vector<int>		m_areaVertices;
+			std::vector<int>		m_areaFacets;
 			std::vector<int>		m_crossFacets;
 			std::vector<Vector4>	m_curvetures;
 			std::vector<int_fast16_t> m_isVertexIn;
@@ -66,7 +72,7 @@ namespace Causality
 			bool CaculateCameraFrustum();
 
 			// Helper, caculates the vertices with in the patch
-			void CaculateVerticsInPatch(XMVECTOR_ARRAY &positions);
+			void CaculateVerticsInPatch(int fid, const DirectX::BoundingOrientedBox &patchRange, XMVECTOR_ARRAY &positions);
 
 			// Helper, caculates the patch's edges curves into array m_curvetures
 			void CaculatePatchCurvetures(XMVECTOR_ARRAY &positions);
@@ -152,6 +158,7 @@ namespace Causality
 			TrackedPen*						m_pen;
 			StateEnum						m_state;
 
+			DirectX::Ray					m_castRay;
 			bool							m_isHit;
 			Geometrics::MeshRayIntersectionInfo	
 											m_isInfo;

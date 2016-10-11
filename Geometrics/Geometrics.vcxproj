@@ -140,7 +140,7 @@
     <ClInclude Include="csg.h" />
     <ClInclude Include="Extrusion.h" />
     <ClInclude Include="MetaBallModel.h" />
-    <ClInclude Include="KdBVH.h" />
+    <ClInclude Include="bvh.h" />
     <ClInclude Include="Polygonizer.h" />
     <ClInclude Include="Primitives.h" />
     <ClInclude Include="SpaceCurve.h" />

@@ -26,7 +26,7 @@
       turn_button='1' is right-button
       turn_button='2' is middle-button
       -->
-      <shadow_camera name="primary_camera" primary="true" background="#FFFFFFFF" position="0,1.7,2.5" focus="0,0,0" up="0,1,0" far="30">
+      <shadow_camera name="primary_camera" primary="true" background="#888888FF" position="0,1.7,2.5" focus="0,0,0" up="0,1,0" far="30">
         <first_person_keyboard_mouse_control turn_button="1" speed="2.0" turing_speed="1.0" flip_x="true" flip_y="true" movement_keys="WASD" />
       </shadow_camera>
 

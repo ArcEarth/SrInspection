@@ -233,7 +233,8 @@ namespace DirectX
 			template <typename _Ty>
 			struct is_aligned
 			{
-				static constexpr bool value = (alignof(_Ty) >= alignof(XMVECTOR) && (alignof(_Ty) % alignof(XMVECTOR) == 0));
+				static constexpr size_t align = alignof(std::remove_cv_t<_Ty>);
+				static constexpr bool value = (align >= alignof(XMVECTOR)) && (alignof(_Ty) % alignof(XMVECTOR) == 0);
 			};
 
 			using std::conditional_t;

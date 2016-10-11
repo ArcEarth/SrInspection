@@ -347,7 +347,7 @@ public:
 		DomainShaderIndices[24] = 0;
 
 		constants.TessellationAlpha = 1.0f;
-		constants.TessellationFactor = 4.0f;
+		constants.TessellationFactor = 3.0f;
 		constants.TessellationScreenFactor.x = 1.0f / (2.0f * 20.0f / 1920.0f);
 		constants.TessellationScreenFactor.y = 1.0f / (2.0f * 20.0f / 1080.0f);
 

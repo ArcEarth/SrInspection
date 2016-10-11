@@ -8,7 +8,9 @@
 #include <gsl.h>
 #include <VertexTraits.h>
 #include <minmax>
-//#include "KdBVH.h"
+#include "bvh.h"
+#include <hlslm\hlsl.hpp>
+#include <iostream>
 
 namespace Geometrics
 {
@@ -311,12 +313,12 @@ namespace Geometrics
 
 		const VertexType& vertex(int facet, int vidx) const
 		{
-			return this->vertices[facet * FaceType::VertexCount + vidx];
+			return this->vertices[this->indices[facet * FaceType::VertexCount + vidx]];
 		}
 
 		VertexType& vertex(int facet, int vidx)
 		{
-			return this->vertices[facet * FaceType::VertexCount + vidx];
+			return this->vertices[this->indices[facet * FaceType::VertexCount + vidx]];
 		}
 
 		// flip all the polygons' winding and vertices' normal 
@@ -338,7 +340,7 @@ namespace Geometrics
 		void generate_normal()
 		{
 			static_assert(PolygonVertex == 3, "This mesh is not trigle mesh, please trianglize it first");
-			generate_normal<VertexType,IndexType>(this->vertices, this->facets());
+			generate_normal<VertexType, IndexType>(this->vertices, this->facets());
 		}
 
 		void generate_tangent()
@@ -419,6 +421,66 @@ namespace Geometrics
 		}
 	};
 
+	struct XM_ALIGNATTR aabb_t {
+		hlsl::xmvector3f min;
+		hlsl::xmvector3f max;
+		mutable int	 intersected;
+
+		template <size_t dim>
+		static bool less(const aabb_t& lhs, const aabb_t & rhs)
+		{
+			using namespace hlsl;
+			return hlsl::less(lhs.min, rhs.min).get<dim>();
+		}
+
+		aabb_t operator+(const aabb_t& rhs) const
+		{
+			const aabb_t& lhs = *this;
+			using namespace hlsl;
+			aabb_t ret{ hlsl::min(lhs.min,rhs.min),hlsl::max(lhs.max,rhs.max) };
+			return ret;
+		}
+
+		// Convert min-max representation of this box to center-extent representation
+		DirectX::BoundingBox get_dxbox() const
+		{
+			const float epsilon = 1e-3;
+			using namespace hlsl;
+			auto& aabb = *this;
+			DirectX::BoundingBox box;
+			xmvector3f extent = (aabb.max - aabb.min) * 0.5f;
+			extent = hlsl::max(extent, xmfloat(epsilon));
+			box.Center << (aabb.max + aabb.min) * 0.5f;
+			box.Extents << extent;
+			return box;
+		}
+
+		operator DirectX::BoundingBox() const { return get_dxbox(); }
+	};
+
+	struct XM_ALIGNATTR ray_aabb_intersector {
+		DirectX::XMVECTOR origin;
+		DirectX::XMVECTOR direction;
+		//size_t			  counter;
+		bool XM_CALLCONV operator ()(const aabb_t& aabb) const
+		{
+			//counter++;
+			float f;
+			auto box = aabb.get_dxbox();
+			bool succ = box.Intersects(origin, direction, f);
+			//if (succ)
+			//	std::cout << "testing [" << aabb.min.get<0>() << '-' << aabb.max.get<0>() << ',' << aabb.min.get<1>() << '-' << aabb.max.get<1>() << ',' << aabb.min.get<2>() << '-' << aabb.max.get<2>() << ']' << std::endl;
+			aabb.intersected = succ;
+			return succ;
+		}
+	};
+
+	// A struct stores fixed size polygon (position only)
+	template <size_t _Size>
+	struct PlainPolygon {
+		hlsl::xmvector3f v[_Size];
+	};
+
 	/// <summary>
 	/// Basic triangle mesh, each index represent an edge, which is the edge oppsite to the vertex in it's owner triangle
 	/// </summary>
@@ -428,6 +490,7 @@ namespace Geometrics
 	public:
 		static const size_t VertexCount = FaceType::VertexCount;
 		using triangle_handle = IndexType;
+		using PlainTriangle = PlainPolygon<3>;
 
 	public:
 		// edge's reverse edge
@@ -436,33 +499,44 @@ namespace Geometrics
 		DirectX::BoundingBox	aabb;
 		DirectX::BoundingOrientedBox obb;
 
-		struct XM_ALIGNATTR aabb_t {
-			DirectX::XMVECTOR min;
-			DirectX::XMVECTOR max;
-			aabb_t merged(const aabb_t& rhs) const
-			{
-				using namespace DirectX;
-				return aabb_t{ XMVectorMin(min,rhs.min),XMVectorMax(max,rhs.max); }
-			}
-		};
+		PlainTriangle XM_CALLCONV get_triangle_position(IndexType fid) const
+		{
+			using namespace DirectX::VertexTraits;
+			using namespace hlsl;
+			auto f = this->indices.begin() + fid * 3;
+			PlainTriangle tri = {
+			xmvector3f(get_position(this->vertices[f[0]]))
+			,xmvector3f(get_position(this->vertices[f[1]]))
+			,xmvector3f(get_position(this->vertices[f[2]])) };
+			return tri;
+		}
 
-		/*
-		typedef KdAabbTree<float, 3, triangle_handle> kdtree_t;
-		kdtree_t				kdtree;
+#define _EXPANDTRI(tri) tri.v[0].v, tri.v[1].v, tri.v[2].v
 
-		TriangleMesh() :kdtree([this](const triangle_handle t) {
-			using DirectX::VertexTraits;
-			using namespace DirectX;
-			auto f = this->facet(t);
-			XMVECTOR v0 = get_position(this->vertex(f[0]));
-			XMVECTOR v1 = get_position(this->vertex(f[1]));
-			XMVECTOR v2 = get_position(this->vertex(f[2]));
-			XMVECTOR vmax = XMVectorMax(v0, v1);
-			vmax = XMVectorMax(vmax, v2);
-			XMVECTOR vmin = XMVectorMin(v0, v1);
-			vmin = XMVectorMin(vmax, v2);
-			return Eigen::AlignedBox<float, 3>(vmin,vmax);
-		});*/
+		aabb_t XM_CALLCONV get_triangle_aabb(triangle_handle t) const
+		{
+			using namespace hlsl;
+			PlainTriangle tri = get_triangle_position(t);
+			xmvector3f vmax = hlsl::max(tri.v[0], tri.v[1]);
+			vmax = hlsl::max(vmax, tri.v[2]);
+			xmvector3f vmin = hlsl::min(tri.v[0], tri.v[1]);
+			vmin = hlsl::min(vmin, tri.v[2]);
+			aabb_t ret;
+			ret.min = vmin;
+			ret.max = vmax;
+			ret.intersected = true;
+			return ret;
+		}
+
+		using triangle_bvh_t = kd_tree<triangle_handle, float, 3, aabb_t>;
+		triangle_bvh_t				triangle_bvh;
+
+		using vertex_bvh_t = kd_tree<VertexType, float, 3, aabb_t>;
+		vertex_bvh_t				vertex_bvh;
+
+		TriangleMesh() : triangle_bvh([this](const triangle_handle& t) {
+			return this->get_triangle_aabb(t);
+		}) {}
 
 		// vertex's first adjacant edge
 		// std::vector<IndexType> vedges;
@@ -558,7 +632,27 @@ namespace Geometrics
 				++fid;
 			}
 
-			//kdtree.init();
+			// rebuild the kd tree
+			triangle_bvh.resize(this->indices.size() / 3);
+			std::iota(triangle_bvh.begin(), triangle_bvh.end(), 0);
+			triangle_bvh.rebuild();
+
+			//for (int fid = 0; fid < this->indices.size() / 3; ++fid)
+			//{
+			//	auto tri = this->facet(fid);
+			//	using namespace DirectX::VertexTraits;
+			//	DirectX::XMVECTOR v0 = get_position(this->vertices[tri[0]]);
+			//	DirectX::XMVECTOR v1 = get_position(this->vertices[tri[1]]);
+			//	DirectX::XMVECTOR v2 = get_position(this->vertices[tri[2]]);
+			//	auto&& vol = triangle_bvh.get_volumn(fid);
+			//	bool cond = true;
+			//	assert(DirectX::XMVector3LessOrEqual(v0, vol.max.v));
+			//	assert(DirectX::XMVector3LessOrEqual(v1, vol.max.v));
+			//	assert(DirectX::XMVector3LessOrEqual(v2, vol.max.v));
+			//	assert(DirectX::XMVector3LessOrEqual(vol.min.v, v0));
+			//	assert(DirectX::XMVector3LessOrEqual(vol.min.v, v1));
+			//	assert(DirectX::XMVector3LessOrEqual(vol.min.v, v2));
+			//}
 		}
 
 		// generate a persoude vertex from the interpolation of the trianlge
@@ -574,45 +668,109 @@ namespace Geometrics
 			return interpolate_vertex(baycentric, v0, v1, v2);
 		}
 
+		MeshRayIntersectionInfo XM_CALLCONV first_intersect(DirectX::FXMVECTOR Origin, DirectX::FXMVECTOR Direction) const
+		{
+			using namespace DirectX;
+			XMVECTOR vOri = Origin;
+			XMVECTOR vDir = XMVector3Normalize(Direction);
+			auto ray_aabb_inter = [vOri, vDir](const aabb_t& aabb) -> float
+			{
+				float f;
+				auto box = aabb.get_dxbox();
+				bool succ = box.Intersects(vOri, vDir, f);
+				aabb.intersected = succ;
+				return succ ? f : -1.0f;
+			};
+			auto ray_triangle_inter = [this, vOri, vDir](const int fid) -> float
+			{
+				PlainTriangle tri = this->get_triangle_position(fid);
+				float f;
+				bool succ = DirectX::TriangleTests::Intersects(vOri, vDir, _EXPANDTRI(tri), f);
+				return succ ? f : -1.0f;
+			};
+
+			//std::cout << counter << std::endl;
+			auto pfid = find_first_of(this->triangle_bvh, ray_triangle_inter, ray_aabb_inter);
+			MeshRayIntersectionInfo info;
+			info.facet = -1;
+			if (pfid)
+			{
+				auto fid = *pfid;
+				float distance = ray_triangle_inter(fid);
+				XMVECTOR pos = distance * vDir + vOri;
+				PlainTriangle tri = get_triangle_position(fid);
+				info.barycentric = DirectX::TriangleTests::BarycentricCoordinate(pos, _EXPANDTRI(tri));
+				info.facet = fid;
+				info.position = pos;
+				info.distance = distance;
+			}
+			return info;
+		}
+
 		// Ray intersection test with advanced infomation
 		int XM_CALLCONV intersect(DirectX::FXMVECTOR Origin, DirectX::FXMVECTOR Direction, std::vector<MeshRayIntersectionInfo>* output) const
 		{
 			//assert(revedges.size() == indices.size());
 			using namespace DirectX;
 			using namespace DirectX::VertexTraits;
+
 			size_t count = 0;
 			XMVECTOR vOri = Origin;
 			XMVECTOR vDir = XMVector3Normalize(Direction);
 			auto fid = 0;
-			for (auto tri : this->facets())
+			assert(this->triangle_bvh.valiad() && "This triangle mesh is modified but not rebuild");
+
+			ray_aabb_intersector intersector{ vOri , vDir };
+			for (auto triangles = find_all_of(triangle_bvh, intersector);
+				triangles;
+				++triangles)
 			{
+				fid = *triangles;
+				PlainTriangle tri = get_triangle_position(fid);
 				float distance;
 
-				XMVECTOR v0 = get_position(this->vertices[tri[0]]);
-				XMVECTOR v1 = get_position(this->vertices[tri[1]]);
-				XMVECTOR v2 = get_position(this->vertices[tri[2]]);
-
-				bool hr = DirectX::TriangleTests::Intersects(vOri, vDir, v0, v1, v2, distance);
+				bool hr = DirectX::TriangleTests::Intersects(vOri, vDir, _EXPANDTRI(tri), distance);
 				if (hr) {
 					++count;
 					if (output) {
 						output->emplace_back();
 						auto& info = output->back();
 						XMVECTOR pos = distance * vDir + vOri;
-						XMVECTOR bc = DirectX::TriangleTests::BarycentricCoordinate(pos, v0, v1, v2);
+						XMVECTOR bc = DirectX::TriangleTests::BarycentricCoordinate(pos, _EXPANDTRI(tri));
 						info.facet = fid;
 						info.position = pos;
 						info.distance = distance;
 						info.barycentric = bc;
 					}
 				}
-				++fid;
 			}
+
+			//std::cout << "total = " << total << ", failed = " << total - count << std::endl;
 
 			if (output)
 				std::sort(output->begin(), output->end());
 			return count;
 		}
+
+		template <typename _TPred, typename _TContainer>
+		void find_adjacant_facets_of(IndexType facet_id, _TPred&& pred, _TContainer& result_map) const
+		{
+			for (int e = 0; e < 3; e++)
+			{
+				auto rev_edge = this->revedges[facet_id + e];
+				auto adj_face = rev_edge / 3;
+				auto itr = result_set.find(adj_face);
+				if (itr != adj_face.end())
+				{
+					auto containment = pred(adj_face);
+					result_set.insert(std::make_pair(facet_id,containment));
+					if (containment != DISJOINT)
+						this->find_adjacant_facets_of(rev_edge, pred, result_map);
+				}
+			}
+		}
+
+
 	};
 
 	namespace Internal

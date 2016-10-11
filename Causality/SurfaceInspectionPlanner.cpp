@@ -414,16 +414,16 @@ InspectionPatch * SurfaceInspectionPlanner::AddInspectionPatch(FXMVECTOR uv, int
 void SurfaceInspectionPlanner::CaculateCameraPath()
 {
 	m_isCameraPath.push_back(m_isCameraPath.size());
-	auto dis = [this](int i, int j) {return Vector3::Distance(m_isPatches[i].m_cameraFrustum.Origin, m_isPatches[j].m_cameraFrustum.Origin);};
+	auto dis = [this](int i, int j) {return Vector3::Distance(m_isPatches[i].m_cameraFrustum.Origin, m_isPatches[j].m_cameraFrustum.Origin); };
 
 	vector<int> path(m_isCameraPath);
 	auto& spath = m_isCameraPath;
 	int n = m_isCameraPath.size();
 	float minDis = std::numeric_limits<float>::max();
-	vector<BOOL> visited(n,false);
+	vector<BOOL> visited(n, false);
 	visited[m_isCameraPath[0]] = true;
 
-	function<void(int,int)> search_recur = [&](int k, float sum) -> void
+	function<void(int, int)> search_recur = [&](int k, float sum) -> void
 	{
 		if (k == n && sum < minDis)
 		{
@@ -618,24 +618,78 @@ bool XM_CALLCONV SurfaceInspectionPlanner::HitTest(FXMVECTOR pos_world, FXMVECTO
 	m_isHit = false;
 	XMVECTOR pos = XMVector3Transform(pos_world, invworld);
 	XMVECTOR dir = XMVector3TransformNormal(dir_world, invworld);
+	dir = XMVector3Normalize(dir);
+	m_castRay = DirectX::Ray(pos, dir);
 
-	std::vector<Geometrics::MeshRayIntersectionInfo> intersecs;
+	//std::vector<Geometrics::MeshRayIntersectionInfo> intersecs;
 	float dis;
 
-	dir = XMVector3Normalize(dir);
 	// fast rejection path
-	if (!m_decalModel->GetOrientedBoundingBox().Intersects(pos, dir, dis))
-		return false;
-	if (!m_decalModel->GetBoundingBox().Intersects(pos, dir, dis))
-		return false;
+	//if (!m_decalModel->GetOrientedBoundingBox().Intersects(pos, dir, dis))
+	//	return false;
+	//if (!m_decalModel->GetBoundingBox().Intersects(pos, dir, dis))
+	//	return false;
 
-	m_mesh.intersect(pos, dir, &intersecs);
-	if (!intersecs.empty())
+	m_isInfo = m_mesh.first_intersect(pos, dir);
+	m_isHit = m_isInfo.facet >= 0;
+	//if (!intersecs.empty())
+	//{
+	//	m_isHit = true;
+	//	m_isInfo = intersecs[0];
+	//}
+	return m_isHit;
+}
+
+int DrawBVH(const TriangleMeshType::triangle_bvh_t& tree, int node, int maxDepth)
+{
+	if (maxDepth <= 0) return 0;
+	auto&& aabb = tree.get_volumn(node);
+	XMVECTOR color = (aabb.intersected ? Colors::Green : Colors::Orange);
+	auto children = tree.get_children(node);
+
+	if (aabb.intersected)
+		color = DirectX::XMVectorSetW(color,0.2f);
+	else 
+		color = DirectX::XMVectorSetW(color, 0.4f);
+
+	if (children.empty())
+		color = (aabb.intersected ? Colors::Lime : Colors::Orange);
+
+	DirectX::BoundingGeometry geo(aabb.get_dxbox());
+	DrawGeometryOutline(geo, color);
+
+	int level = 100;
+	if (aabb.intersected)
 	{
-		m_isHit = true;
-		m_isInfo = intersecs[0];
+		level = maxDepth;
+		for (auto& c : children)
+			level = std::min(level,DrawBVH(tree, c, maxDepth - 1));
 	}
-	return !intersecs.empty();
+	return level;
+}
+
+int DrawBVH2(const TriangleMeshType::triangle_bvh_t& tree, int node, DirectX::Ray ray)
+{
+	std::vector<int> stck; stck.reserve(20);
+	int nid = node;
+	while (nid >= 0)
+	{
+		stck.push_back(nid);
+		nid = tree.get_parent(nid);
+	}
+	int errornode = -1;
+	for (int i = stck.size()-1; i >=0; --i)
+	{
+		if (errornode < 0 && !tree.get_volumn(stck[i]).intersected)
+			errornode = i;
+		if (errornode >= 0)
+		{
+			int node = stck[i];
+			DirectX::BoundingGeometry geo(tree.get_volumn(node).get_dxbox());
+			DrawGeometryOutline(geo, Colors::Red);
+		}
+	}
+	return errornode;
 }
 
 void SurfaceInspectionPlanner::Render(IRenderContext * pContext, IEffect * pEffect)
@@ -647,11 +701,33 @@ void SurfaceInspectionPlanner::Render(IRenderContext * pContext, IEffect * pEffe
 	{
 		auto world = m_workloadObj->GlobalTransformMatrix();
 		m_decalModel->Render(pContext, world, pEffect);
-		if (m_isHit || m_isPatches.size() > 0)
+
+		bool shoulddraw = g_DebugView || m_isHit || m_isPatches.size() > 0;
+
+		if (shoulddraw)
 		{
 			auto& darwer = Visualizers::g_PrimitiveDrawer;
 			darwer.SetWorld(world);
 			darwer.Begin();
+
+			if (g_DebugView)
+			{
+				int level = DrawBVH(m_mesh.triangle_bvh, m_mesh.triangle_bvh.root(), 20);
+
+				int err = DrawBVH2(m_mesh.triangle_bvh, m_isInfo.facet, m_castRay);
+
+				if (err != -1)
+				{
+					auto tri = m_mesh.facet(m_isInfo.facet);
+
+					XMVECTOR v0 = get_position(m_mesh.vertices[tri[0]]);
+					XMVECTOR v1 = get_position(m_mesh.vertices[tri[1]]);
+					XMVECTOR v2 = get_position(m_mesh.vertices[tri[2]]);
+					darwer.DrawLine(v0, v1, Colors::Red);
+					darwer.DrawLine(v1, v2, Colors::Red);
+					darwer.DrawLine(v2, v0, Colors::Red);
+				}
+			}
 
 			if (m_isHit)
 				DrawPatchCamera(m_previwPatch);
@@ -660,6 +736,7 @@ void SurfaceInspectionPlanner::Render(IRenderContext * pContext, IEffect * pEffe
 			{
 				DrawPatchCamera(patch);
 			}
+
 			for (int i = 1; i < m_isCameraPath.size(); i++)
 			{
 				int pcpid = m_isCameraPath[i - 1];
@@ -668,14 +745,13 @@ void SurfaceInspectionPlanner::Render(IRenderContext * pContext, IEffect * pEffe
 				auto curr = XMLoad(m_isPatches[cpid].m_cameraFrustum.Origin);
 				darwer.DrawLine(prev, curr, DirectX::Colors::Blue);
 			}
-
 			darwer.End();
 		}
 	}
 
 	if (m_pen)
 	{
-		RenderCursor(pContext, pEffect);
+		//RenderCursor(pContext, pEffect);
 	}
 
 	if (g_DebugView && pEffect)
@@ -985,9 +1061,9 @@ bool InspectionPatch::CaculateCameraFrustum()
 	std::vector<XMVECTOR, XMAllocator> positions;
 	std::vector<XMVECTOR, XMAllocator> normals;
 
-	CaculateVerticsInPatch(positions);
+	CaculateVerticsInPatch(m_isInfo.facet, BoundingBox, positions);
 
-	if (m_areVertices.size() == 0)
+	if (m_areaVertices.size() == 0)
 	{
 		Valiad = false;
 		return false;
@@ -1019,10 +1095,10 @@ bool InspectionPatch::CaculateCameraFrustum()
 	return Valiad;
 }
 
-void InspectionPatch::CaculateVerticsInPatch(XMVECTOR_ARRAY&positions)
+void InspectionPatch::CaculateVerticsInPatch(int fid, const DirectX::BoundingOrientedBox &patchRange, XMVECTOR_ARRAY&positions)
 {
 	positions.clear();
-	m_areVertices.clear();
+	m_areaVertices.clear();
 	XMVECTOR dsize = DecalSize;
 	XMVECTOR ext = m_uvExtent;
 	XMVECTOR uvmin = m_uvCenter - m_uvExtent * 1.2f;
@@ -1046,7 +1122,7 @@ void InspectionPatch::CaculateVerticsInPatch(XMVECTOR_ARRAY&positions)
 			if (inside)
 			{
 				m_isVertexIn[i] = 1;
-				m_areVertices.push_back(i);
+				m_areaVertices.push_back(i);
 				positions.push_back(get_position(v));
 				XMVECTOR norm = get_normal(v);
 				//normals.push_back(norm);
@@ -1315,7 +1391,7 @@ void InspectionPatch::UpdateGeometry(I2DFactory* pFactory, bool smooth)
 	{
 		float a = i* XM_PI / CurvtureAngluarResolution;
 		float m = 0.25f * CurvtureDistribution[i % CurvtureAngluarResolution];
-		chisto[i] = D2D_POINT_2F{0.75f + XMScalarCosEst(a)*m, 0.75f + XMScalarSinEst(a)*m };
+		chisto[i] = D2D_POINT_2F{ 0.75f + XMScalarCosEst(a)*m, 0.75f + XMScalarSinEst(a)*m };
 	}
 	pSink->BeginFigure(
 		chisto[0],
