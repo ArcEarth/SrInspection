@@ -421,6 +421,15 @@ namespace Geometrics
 		}
 	};
 
+	template <size_t _Dim>
+	struct PolygonContainmentInfo
+	{
+		static constexpr size_t Dim = _Dim;
+		DirectX::ContainmentType containment; // overall polygon containment type
+		DirectX::ContainmentType vertex_containments[Dim];
+		operator DirectX::ContainmentType() const { return containment; }
+	};
+
 	struct XM_ALIGNATTR aabb_t {
 		hlsl::xmvector3f min;
 		hlsl::xmvector3f max;
@@ -491,6 +500,9 @@ namespace Geometrics
 		static const size_t VertexCount = FaceType::VertexCount;
 		using triangle_handle = IndexType;
 		using PlainTriangle = PlainPolygon<3>;
+		using ContainmentType = DirectX::ContainmentType;
+		using BaseType = PolygonSoup<_VertexType, _IndexType, Triangle<_IndexType>>;
+		using BaseType::PolygonVertex;
 
 	public:
 		// edge's reverse edge
@@ -528,10 +540,10 @@ namespace Geometrics
 			return ret;
 		}
 
-		using triangle_bvh_t = kd_tree<triangle_handle, float, 3, aabb_t>;
+		using triangle_bvh_t = kd_bvh<triangle_handle, float, 3, aabb_t>;
 		triangle_bvh_t				triangle_bvh;
 
-		using vertex_bvh_t = kd_tree<VertexType, float, 3, aabb_t>;
+		using vertex_bvh_t = kd_bvh<VertexType, float, 3, aabb_t>;
 		vertex_bvh_t				vertex_bvh;
 
 		TriangleMesh() : triangle_bvh([this](const triangle_handle& t) {
@@ -755,18 +767,16 @@ namespace Geometrics
 		template <typename _TPred, typename _TContainer>
 		void find_adjacant_facets_of(IndexType facet_id, _TPred&& pred, _TContainer& result_map) const
 		{
-			for (int e = 0; e < 3; e++)
+			auto containment = pred(facet_id);
+			if (!containment) return;
+			result_map.insert(std::make_pair(facet_id, containment));
+			for (int e = 0; e < PolygonVertex; e++)
 			{
 				auto rev_edge = this->revedges[facet_id + e];
-				auto adj_face = rev_edge / 3;
-				auto itr = result_set.find(adj_face);
-				if (itr != adj_face.end())
-				{
-					auto containment = pred(adj_face);
-					result_set.insert(std::make_pair(facet_id,containment));
-					if (containment != DISJOINT)
-						this->find_adjacant_facets_of(rev_edge, pred, result_map);
-				}
+				auto adj_face = rev_edge / PolygonVertex;
+				// if not visited yet
+				if (rev_edge != -1 && result_map.find(adj_face) == result_map.end())
+					this->find_adjacant_facets_of(adj_face, pred, result_map);
 			}
 		}
 

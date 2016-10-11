@@ -37,7 +37,7 @@ std::ostream& operator<<(std::ostream& lhs, hlsl::xmvector<_Scalar, _Dim> v)
 using namespace Geometrics;
 using namespace std;
 
-using tree_t = kd_tree<int, float, 3, aabb_t, vector<int>&>;
+using tree_t = kd_bvh<int, float, 3, aabb_t, vector<int>&>;
 
 struct XM_ALIGNATTR aabb_ray_intersector {
 	DirectX::XMVECTOR origin;

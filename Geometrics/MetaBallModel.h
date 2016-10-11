@@ -223,7 +223,7 @@ namespace Geometrics{
 		float EffictiveRadiusRatio() const { return m_EffectiveRatio; };
 
 	public:
-		typedef kd_tree<Metaball, float, 3> AcceleratedContainer;
+		typedef kd_bvh<Metaball, float, 3> AcceleratedContainer;
 
 		AcceleratedContainer		Primitives;
 

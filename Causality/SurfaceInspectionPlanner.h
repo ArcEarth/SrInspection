@@ -60,11 +60,14 @@ namespace Causality
 			cptr<ID2D1PathGeometry> m_deaclGeometry;
 			cptr<ID2D1PathGeometry> m_curvHistoGeometry;
 
-			std::vector<int>		m_areaVertices;
-			std::vector<int>		m_areaFacets;
-			std::vector<int>		m_crossFacets;
+			using tri_idx_t = TriangleMeshType::IndexType;
+			using tri_containment_t = Geometrics::PolygonContainmentInfo<3>;
+
 			std::vector<Vector4>	m_curvetures;
-			std::vector<int_fast16_t> m_isVertexIn;
+			std::unordered_map<tri_idx_t, Geometrics::PolygonContainmentInfo<3>>
+									m_areaFacets;
+			std::unordered_map<tri_idx_t, DirectX::ContainmentType>
+									m_areaVertices;
 
 			using XMVECTOR_ARRAY = std::vector<DirectX::XMVECTOR, DirectX::XMAllocator>;
 

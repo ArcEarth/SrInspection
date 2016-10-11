@@ -154,13 +154,16 @@ namespace Geometrics {
 
 			node_handle			root() const;
 			range<node_handle>	get_children(node_handle nid) const;
-			range<object_t>		get_objects(node_handle nid) const;
+			const object_t*		get_objects(node_handle nid) const;
 			aabb_t				get_volumn(node_handle nid) const;
 		};
 	}
 
+	// K-dimensional Bounding Volumn Hierachy
+	// naive implementation of a kdtree alike bvh structure
+	// the bvh partition is done in axis 0,1,2,...,n blindly
 	template <typename _TObject, typename _TScalar, size_t _Dim, typename _TBoundingVolumn = internal::aabb_t<_TScalar, _Dim>, typename _ContainerType = internal::aligned_vector<_TObject>>
-	class kd_tree
+	class kd_bvh
 	{
 	public:
 		// Dummy Template Data
@@ -200,9 +203,9 @@ namespace Geometrics {
 		bool						m_valiad;
 
 	public:
-		kd_tree() : m_valiad(false) {}
-		kd_tree(const volumn_func& get_volumn_func) : mf_getbox(get_volumn_func), m_valiad(false) {}
-		kd_tree(container_t && cont, const volumn_func& get_volumn_func) : m_objects(cont), mf_getbox(get_volumn_func), m_valiad(false) {
+		kd_bvh() : m_valiad(false) {}
+		kd_bvh(const volumn_func& get_volumn_func) : mf_getbox(get_volumn_func), m_valiad(false) {}
+		kd_bvh(container_t && cont, const volumn_func& get_volumn_func) : m_objects(cont), mf_getbox(get_volumn_func), m_valiad(false) {
 			rebuild();
 		}
 

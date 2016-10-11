@@ -576,6 +576,7 @@ void SurfaceInspectionPlanner::Update(time_seconds const & time_delta)
 				else
 				{
 					m_previwPatch.m_uvCenter = get_uv(pv);
+					m_previwPatch.m_isInfo = m_isInfo; // copy the intersection info
 					m_previwPatch.UpdateDecalTransformMatrix();
 					m_previwPatch.CaculateCameraFrustum();
 					m_declDirtyFalg = 1;
@@ -1097,56 +1098,92 @@ bool InspectionPatch::CaculateCameraFrustum()
 
 void InspectionPatch::CaculateVerticsInPatch(int fid, const DirectX::BoundingOrientedBox &patchRange, XMVECTOR_ARRAY&positions)
 {
-	positions.clear();
-	m_areaVertices.clear();
+	using namespace DirectX::VertexTraits;
 	XMVECTOR dsize = DecalSize;
 	XMVECTOR ext = m_uvExtent;
-	XMVECTOR uvmin = m_uvCenter - m_uvExtent * 1.2f;
-	XMVECTOR uvmax = m_uvCenter + m_uvExtent * 1.2f;
+	XMVECTOR uvmin = m_uvCenter - m_uvExtent;
+	XMVECTOR uvmax = m_uvCenter + m_uvExtent;
 	auto& vertices = this->m_surface->vertices;
 
-	m_isVertexIn.resize(vertices.size());
-	std::fill(m_isVertexIn.begin(), m_isVertexIn.end(), 0);
-	//ZeroMemory(vertices.data(), vertices.size() * sizeof(int_fast16_t));
-	XMVECTOR avNorm = XMVectorZero();
-	for (int i = 0; i < vertices.size(); i++)
-	{
-		auto& v = vertices[i];
-		XMVECTOR uv = get_uv(v);
-		BOOL inside;
-		// fast rejection
-		inside = XMVector2Greater(uv, uvmin) && XMVector2Less(uv, uvmax);
-		if (inside)
+	positions.clear();
+	m_areaVertices.clear();
+	m_areaFacets.clear();
+	std::cout << "Testing Facets ";
+	// m_areaFacets.reserve(); C * PatchArea / SurfaceArea * SurfaceTriangleCount
+	m_surface->find_adjacant_facets_of(fid, [this, uvmin, uvmax](tri_idx_t facet_id) -> tri_containment_t {
+		tri_containment_t contains;
+		std::cout << facet_id<< ',';
+
+		auto& surface = *this->m_surface;
+		int count = 0;
+		for (int i = 0; i < 3; i++)
 		{
-			//m_deaclGeometry->FillContainsPoint(GetD2DPoint(uv * dsize), m_decalTransform, &inside);
-			if (inside)
+			auto& v = surface.vertex(facet_id,i);
+			XMVECTOR uv = get_uv(v);
+			int inside = XMVector2Greater(uv, uvmin) && XMVector2Less(uv, uvmax);
+			count += inside;
+			contains.vertex_containments[i] = inside ? DirectX::ContainmentType::CONTAINS : DirectX::ContainmentType::DISJOINT;
+		}
+		contains.containment = count == 0 ? DirectX::ContainmentType::DISJOINT :
+							   count == 3 ? DirectX::ContainmentType::CONTAINS : 
+											DirectX::ContainmentType::INTERSECTS;
+		return contains;
+	}, m_areaFacets);
+
+	std::cout << "=============== Testing end =============" << std::endl;
+
+	m_areaVertices.clear();
+	for (auto& fc : m_areaFacets)
+	{
+		int fid = fc.first;
+		auto& vin = fc.second.vertex_containments;
+		for (int i = 0; i < 3; i++)
+			m_areaVertices[surface().indices[fid * 3 + i]] = fc.second.vertex_containments[i];
+
+		if (fc.second.containment == DirectX::ContainmentType::INTERSECTS)
+		{
+			for (int e = 0; e < 3; e++)
 			{
-				m_isVertexIn[i] = 1;
-				m_areaVertices.push_back(i);
-				positions.push_back(get_position(v));
-				XMVECTOR norm = get_normal(v);
-				//normals.push_back(norm);
-				avNorm += norm;
+				if (vin[e] ^ vin[(e + 1) % 3])
+				{
+					auto v0 = surface().vertex(fid, e);
+					auto v1 = surface().vertex(fid, (e + 1) % 3);
+					AddCrossEdgeIntersections(v0, v1, positions);
+				}
 			}
 		}
 	}
-	m_averageNormal = avNorm;
 
+	XMVECTOR avNorm = XMVectorZero();
+	for (auto& vc : m_areaVertices)
+	{
+		int vid = vc.first;
+		if (vc.second != DirectX::ContainmentType::DISJOINT)
+		{
+			auto& v = vertices[vid];
+			XMVECTOR norm = get_normal(v);
+			avNorm += norm;
+			positions.push_back(get_position(v));
+		}
+	}
+	m_averageNormal = DirectX::XMVector3Normalize(avNorm);
 }
 
 void InspectionPatch::CaculatePatchCurvetures(XMVECTOR_ARRAY &positions)
 {
 	auto& vertices = m_surface->vertices;
 	m_curvetures.clear();
-	for (auto& facet : m_surface->facets())
+	for (auto& fc : m_areaFacets)
 	{
+		auto& facet = surface().facet(fc.first);
+		auto& is_vertex_in_area = fc.second.vertex_containments;
 		for (int e = 0; e < 3; e++)
 		{
 			int iv0 = facet[e];
 			int iv1 = facet[(e + 1) % 3];
 
-			auto v0_in = m_isVertexIn[iv0];
-			auto v1_in = m_isVertexIn[iv1];
+			auto v0_in = is_vertex_in_area[e];
+			auto v1_in = is_vertex_in_area[(e + 1) % 3];
 			if (v0_in || v1_in)
 			{
 				auto v0 = vertices[iv0];
@@ -1154,12 +1191,6 @@ void InspectionPatch::CaculatePatchCurvetures(XMVECTOR_ARRAY &positions)
 
 				XMVECTOR ip = GetEdgeCurveture(v0, v1);
 				m_curvetures.emplace_back(ip);
-
-				if (v0_in ^ v1_in) // crossing edge
-				{
-					AddCrossEdgeIntersections(v0, v1, positions);
-				}
-
 			}
 		}
 	}
@@ -1176,6 +1207,7 @@ void InspectionPatch::AddCrossEdgeIntersections(const DirectX::VertexPositionNor
 	{
 		b1 = e1;
 		e1 = m_uvCurve[i];
+
 		XMVECTOR t = DirectX::LineSegmentTest::RayIntersects2D(uv0, uv1, b1, e1);
 		if (!DirectX::XMVector4IsNaN(t) && XMVector4Less(t, g_XMOne.v))
 		{
@@ -1321,18 +1353,19 @@ void XM_CALLCONV InspectionPatch::CaculatePrinciplePatchOrientation()
 
 void XM_CALLCONV InspectionPatch::SetUVRect(FXMVECTOR uvc, FXMVECTOR uvext)
 {
-	m_uvCurve.clear();
 	m_uvCenter = uvc;
 	m_uvExtent = uvext;
 	m_uvRotation = .0f;
 
-	XMVECTOR onx = g_XMOne.v;
-	XMVECTOR flx = g_XMNegateY.v;
+	XMVECTOR onx = uvext;
+	XMVECTOR flx = g_XMNegateY.v * uvext;
 
-	m_uvCurve.push_back(-onx); // (-1,-1)
-	m_uvCurve.push_back(+flx); // ( 1,-1)
-	m_uvCurve.push_back(+onx); // ( 1, 1)
-	m_uvCurve.push_back(-flx); // (-1, 1)
+	m_uvCurve.clear();
+	m_uvCurve.push_back(uvc - onx); // (-1,-1)
+	m_uvCurve.push_back(uvc + flx); // ( 1,-1)
+	m_uvCurve.push_back(uvc + onx); // ( 1, 1)
+	m_uvCurve.push_back(uvc - flx); // (-1, 1)
+	m_uvCurve.closeLoop();
 
 	UpdateDecalTransformMatrix();
 	m_dirty = 3;
@@ -1391,7 +1424,9 @@ void InspectionPatch::UpdateGeometry(I2DFactory* pFactory, bool smooth)
 	{
 		float a = i* XM_PI / CurvtureAngluarResolution;
 		float m = 0.25f * CurvtureDistribution[i % CurvtureAngluarResolution];
-		chisto[i] = D2D_POINT_2F{ 0.75f + XMScalarCosEst(a)*m, 0.75f + XMScalarSinEst(a)*m };
+		Vector2 v = Vector2{ 0.75f + XMScalarCosEst(a)*m, 0.75f + XMScalarSinEst(a)*m };
+		v = v * m_uvExtent + m_uvCenter;
+		chisto[i] = GetD2DPoint(v);
 	}
 	pSink->BeginFigure(
 		chisto[0],
@@ -1416,8 +1451,8 @@ void InspectionPatch::DrawDecal(I2DContext * pContext, ID2D1SolidColorBrush * pB
 	UpdateDecalTransformMatrix();
 
 	// S
-	auto trans = m_decalTransform * D2D1::Matrix3x2F::Scale(DecalSize.x, DecalSize.y);
-
+	//auto trans = m_decalTransform * D2D1::Matrix3x2F::Scale(DecalSize.x, DecalSize.y);
+	auto trans = D2D1::Matrix3x2F::Identity();
 	pContext->SetTransform(trans);
 
 	pBrush->SetColor(GetD2DColor(color));
@@ -1428,7 +1463,8 @@ void InspectionPatch::DrawDecal(I2DContext * pContext, ID2D1SolidColorBrush * pB
 	//pContext->DrawGeometry(m_curvHistoGeometry.Get(), pBrush, 2.0f / DecalSize.Length());
 	color = Colors::White.v;
 	pBrush->SetColor(GetD2DColor(color));
-	pContext->FillGeometry(m_curvHistoGeometry.Get(), pBrush);
+	if (m_curvHistoGeometry)
+		pContext->FillGeometry(m_curvHistoGeometry.Get(), pBrush);
 }
 
 void InspectionPatch::UpdateDecalTransformMatrix()
