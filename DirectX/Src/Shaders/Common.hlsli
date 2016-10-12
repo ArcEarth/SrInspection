@@ -38,7 +38,7 @@ inline float4 GetLightUV(float4 posWorld, float4x4 viewProjection)
 #define SetPositionNormalToEye \
 	SetPosition; \
 	vout.normal = mul(vin.Normal, (float3x3)World); \
-	vout.toEye = posWorld.xyz - EyePosition;
+	vout.pos_ws = posWorld.xyz;
 
 #define SetPositionNormalToEyeTangentBinormal \
 	SetPositionNormalToEye; \

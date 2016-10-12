@@ -133,7 +133,7 @@ PSInputOneLightTex PN_DS_OneLightTex(
 				+ input.n110 * uvw[2] * uvw[0]
 				+ input.n011 * uvw[0] * uvw[1]
 				+ input.n101 * uvw[2] * uvw[1];
-	vout.normal = lerp(barNormal, pnNormal, TessellationAlpha);
+	vout.normal = barNormal; //lerp(barNormal, pnNormal, TessellationAlpha);
  
 	// compute interpolated pos
 	float3 barPos = uvw[2] * b300
@@ -162,7 +162,7 @@ PSInputOneLightTex PN_DS_OneLightTex(
 
     vout.uv = uvw[2] * patch[0].TexCoord + uvw[0] * patch[1].TexCoord + uvw[1] * patch[2].TexCoord;
  
-    vout.toEye = posWorld.xyz - EyePosition;
+    vout.pos_ws = posWorld.xyz;
 
     SetLightUVOne;
 

@@ -413,8 +413,11 @@ public:
 			XMMATRIX ViewProj = XMMatrixMultiply(matrices.view, matrices.projection);
 			constants.World = XMMatrixTranspose(matrices.world);
 			constants.ViewProjection = XMMatrixTranspose(ViewProj);
+			XMMATRIX invView = XMMatrixInverse(nullptr, matrices.view);
+			constants.EyePosition = invView.r[3];
 			//worldViewProjConstant = XMMatrixTranspose(XMMatrixMultiply(worldView, projection));
 
+			dirtyFlags &= ~EffectDirtyFlags::EyePosition;
 			dirtyFlags &= ~EffectDirtyFlags::WorldViewProj;
 			dirtyFlags |= EffectDirtyFlags::ConstantBuffer;
 		}
@@ -731,16 +734,16 @@ void ShadowMapEffect::SetLightShadowMap(int whichLight, ID3D11ShaderResourceView
 	pImpl->pShadowMaps[whichLight] = pTexture;
 }
 
-void XM_CALLCONV ShadowMapEffect::SetLightView(int whichLight, FXMMATRIX value)
+void XM_CALLCONV ShadowMapEffect::SetLightView(int whichLight, FXMMATRIX view)
 {
-	pImpl->lights[whichLight].View = value;
+	XMMATRIX viewInverse = XMMatrixInverse(nullptr, view);
+	pImpl->lights[whichLight].View = view;
 
 	// Extract Light Position and orientation
-	pImpl->lights[whichLight].SourcePosition = -value.r[3];
-	pImpl->lights[whichLight].SourcePosition.w = 1.0f;
+	pImpl->lights[whichLight].SourcePosition = viewInverse.r[3];
 
-	XMMATRIX viewTrans = XMMatrixTranspose(value);
-	pImpl->lights[whichLight].FocusDirection = XMVectorSelect(g_XMSelect1110.v, viewTrans.r[2], g_XMSelect1110.v);
+	//XMMATRIX viewTrans = XMMatrixTranspose(view);
+	pImpl->lights[whichLight].FocusDirection = XMVectorSelect(g_XMSelect1110.v, -viewInverse.r[2], g_XMSelect1110.v);
 
 	pImpl->dirtyFlags |= EffectDirtyFlags::LightsViewProjection;
 }

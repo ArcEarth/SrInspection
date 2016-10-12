@@ -18,14 +18,14 @@ SamplerState ShadowSampler : register(s2);
 // lambert lighting function
 //
 float3 LambertLighting(
-	float3 lightNormal,
+	float3 lightDir,
 	float3 surfaceNormal,
 	float3 lightColor,
 	float3 pixelColor
 	)
 {
 	// compute amount of contribution per light
-	float diffuseAmount = saturate(dot(lightNormal, surfaceNormal));
+	float diffuseAmount = saturate(dot(-lightDir, surfaceNormal));
 	float3 diffuse = diffuseAmount * lightColor * pixelColor;
 	return diffuse;
 }
@@ -41,7 +41,7 @@ void NormalizeLightUV(inout float4 luv)
 //
 float3 SpecularContribution(
 	float3 toEye,
-	float3 lightNormal,
+	float3 lightDir,
 	float3 surfaceNormal,
 	float3 materialSpecularColor,
 	float  materialSpecularPower,
@@ -49,8 +49,8 @@ float3 SpecularContribution(
 	float3 lightColor)
 {
 	// compute specular contribution
-	float3 vHalf = normalize(lightNormal + toEye);
-	float specularAmount = saturate(dot(surfaceNormal, vHalf));
+	float3 vHalf = normalize(toEye - lightDir);
+	float specularAmount = max(dot(surfaceNormal, vHalf),0);
 	specularAmount = pow(specularAmount, materialSpecularPower) * lightSpecularIntensity;
 	float3 specular = materialSpecularColor * lightColor * specularAmount;
 
@@ -71,7 +71,7 @@ float SampleShadow(Texture2D tex, float2 uv, float depth)
 float4 PS_OneLightNoTex(PSInputOneLightNoTex pixel) : SV_TARGET
 {
 	float3 worldNormal = normalize(pixel.normal);
-	float3 toEyeVector = normalize(pixel.toEye);
+	float3 toEyeVector = normalize(EyePosition - pixel.pos_ws);
 
 	float3 diffuse = MaterialAmbient.rgb * AmbientLight.rgb;
 	float3 matDiffuse = MaterialDiffuse.rgb;
@@ -96,7 +96,7 @@ float4 PS_OneLightTex(PSInputOneLightTex pixel) : SV_TARGET
 	clip(texDiffuse.a - 0.15);
 
 	float3 worldNormal = normalize(pixel.normal);
-	float3 toEyeVector = normalize(pixel.toEye);
+	float3 toEyeVector = normalize(EyePosition - pixel.pos_ws);
 
 	float3 diffuse = MaterialAmbient.rgb * AmbientLight.rgb * texDiffuse.rgb;
 	float3 matDiffuse = MaterialDiffuse.rgb * texDiffuse.rgb;
@@ -124,7 +124,7 @@ float4 PS_OneLightTexBump(PSInputOneLightTexBump pixel) : SV_TARGET
 
 	clip(texDiffuse.a - 0.15);
 
-	float3 toEyeVector = normalize(pixel.toEye);
+	float3 toEyeVector = normalize(EyePosition - pixel.pos_ws);
 
 	// Sample the pixel in the bump map.
 	float2 texBump = NormalTex.Sample(MaterialSampler, pixel.uv);
@@ -158,7 +158,7 @@ float4 PS_OneLightTexBumpSpecular(PSInputOneLightTexBump pixel) : SV_TARGET
 
     clip(texDiffuse.a - 0.15);
 
-    float3 toEyeVector = normalize(pixel.toEye);
+    float3 toEyeVector = normalize(EyePosition - pixel.pos_ws);
 
 	// Sample the pixel in the bump map.
     float2 texBump = NormalTex.Sample(MaterialSampler, pixel.uv);
@@ -172,7 +172,7 @@ float4 PS_OneLightTexBumpSpecular(PSInputOneLightTexBump pixel) : SV_TARGET
     float3 matDiffuse = MaterialDiffuse.rgb * texDiffuse.rgb;
 
     float4 matSpecular = SpecularTex.Sample(MaterialSampler, pixel.uv);
-    float3 specular = matSpecular * AmbientLight.rgb;
+    float3 specular = matSpecular.rgb * AmbientLight.rgb;
 
 	[unroll]
     for (int i = 0; i < 1; i++)
@@ -192,7 +192,7 @@ float4 PS_OneLightTexBumpSpecular(PSInputOneLightTexBump pixel) : SV_TARGET
 float4 PS_ScreenSpaceNoTex(PSInputScreenSpaceNoTex pixel) : SV_TARGET
 {
 	float3 worldNormal = normalize(pixel.normal);
-	float3 toEyeVector = normalize(pixel.toEye);
+	float3 toEyeVector = normalize(EyePosition - pixel.pos_ws);
 
 	float3 diffuse = MaterialAmbient.rgb * AmbientLight.rgb;
 	float3 matDiffuse = MaterialDiffuse.rgb;
@@ -200,7 +200,7 @@ float4 PS_ScreenSpaceNoTex(PSInputScreenSpaceNoTex pixel) : SV_TARGET
 
 	//float2 pixeluv = pixel.pos.xy * float2(0.5f, -0.5f) + 0.5f;
 	//float4 shadowAmount = ShadowTex.Sample(ShadowSampler, pixel.posUV.xy);
-	float4 shadowAmount = ShadowTex.Load(pixel.pos).rgba;
+	float4 shadowAmount = ShadowTex.Load(pixel.pos.xyz).rgba;
 
 	[unroll]
 	for (int i = 0; i < 1; i++)
@@ -220,13 +220,13 @@ float4 PS_ScreenSpaceTex(PSInputScreenSpaceTex pixel) : SV_TARGET
 	clip(texDiffuse.a - 0.15);
 
 	float3 worldNormal = normalize(pixel.normal);
-	float3 toEyeVector = normalize(pixel.toEye);
+	float3 toEyeVector = normalize(EyePosition - pixel.pos_ws);
 
 
 	float3 diffuse = MaterialAmbient.rgb * AmbientLight.rgb * texDiffuse.rgb;
 	float3 matDiffuse = MaterialDiffuse.rgb * texDiffuse.rgb;
 
-	float4 shadowAmount = ShadowTex.Load(pixel.pos);
+	float4 shadowAmount = ShadowTex.Load(pixel.pos.xyz);
 	float3 specular = .0f;
 
 	[unroll]
@@ -253,13 +253,13 @@ float4 PS_ScreenSpaceTexBump(PSInputScreenSpaceTex pixel) : SV_TARGET
 	float3 worldNormal = pixel.normal + texBump.x * pixel.tangent + texBump.y * pixel.binormal;
 	worldNormal = normalize(worldNormal);
 
-	float3 toEyeVector = normalize(pixel.toEye);
+	float3 toEyeVector = normalize(EyePosition - pixel.pos_ws);
 
 
 	float3 diffuse = MaterialAmbient.rgb * AmbientLight.rgb * texDiffuse.rgb;
 	float3 matDiffuse = MaterialDiffuse.rgb * texDiffuse.rgb;
 
-	float4 shadowAmount = ShadowTex.Load(pixel.pos).rgba;
+	float4 shadowAmount = ShadowTex.Load(pixel.pos.xyz).rgba;
 	float3 specular = .0f;																	   //shadowAmount = abs(pixel.pos.z - shadowAmount.w) < Bias ? shadowAmount : 1.0f;
 
 	[unroll]
@@ -276,7 +276,7 @@ float4 PS_ScreenSpaceTexBump(PSInputScreenSpaceTex pixel) : SV_TARGET
 
 float4 PS_BinaryOneLightNoTex(PSInputBinaryOneLightNoTex pixel) : SV_TARGET
 {
-	float4 amount;
+	float4 amount = 0;
 	amount.w = pixel.pos.z;
 
 	[unroll]
@@ -299,7 +299,7 @@ float4 PS_BinaryOneLightTex(PSInputBinaryOneLightTex pixel) : SV_TARGET
 	clip(texDiffuse.a - 0.15f); // Sample Alpha clip texture
 	float alpha = texDiffuse.a;
 
-	float4 amount;
+	float4 amount = 0;
 	amount.w = pixel.pos.z;
 
 	[unroll]
