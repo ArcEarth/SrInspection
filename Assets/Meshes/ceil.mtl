@@ -2,6 +2,7 @@
 # File Created: 17.05.2016 19:10:55
 
 newmtl wire_143225087
+	map_Kd bbronze.dds
 	Ns 32
 	d 1
 	Tr 0
@@ -9,4 +10,4 @@ newmtl wire_143225087
 	illum 2
 	Ka 0.5608 0.8824 0.3412
 	Kd 0.5608 0.5608 0.5608
-	Ks 0.3500 0.3500 0.3500
+	Ks 0.7000 0.7000 0.7000

@@ -179,7 +179,7 @@ void PhongMaterial::SetupEffect(IEffect *pEffect) const
 		pPhongEffect->SetDiffuseColor(DiffuseColor);
 		pPhongEffect->SetEmissiveColor(EmissiveColor);
 		pPhongEffect->SetSpecularColor(SpecularColor);
-		pPhongEffect->SetSpecularPower(SpecularColor.A());
+		pPhongEffect->SetSpecularPower(GetSpecularPower());
 		pPhongEffect->SetAlpha(GetAlpha());
 		pPhongEffect->SetDiffuseMap(GetDiffuseMap());
 		pPhongEffect->SetNormalMap(GetNormalMap());
@@ -212,7 +212,7 @@ void PhongMaterial::SetupEffect(IEffect *pEffect) const
 		pMEffect->SetDiffuseColor(DiffuseColor);
 		pMEffect->SetEmissiveColor(EmissiveColor);
 		pMEffect->SetSpecularColor(SpecularColor);
-		pMEffect->SetSpecularPower(1.0f);
+		pMEffect->SetSpecularPower(GetSpecularPower());
 
 
 		if (GetDiffuseMap())
@@ -236,7 +236,7 @@ void PhongMaterial::SetupEffect(IEffect *pEffect) const
 		pSEffect->SetDiffuseColor(DiffuseColor);
 		pSEffect->SetEmissiveColor(EmissiveColor);
 		pSEffect->SetSpecularColor(SpecularColor);
-		pSEffect->SetSpecularPower(1.0f);
+		pSEffect->SetSpecularPower(GetSpecularPower());
 		return;
 	}
 
@@ -248,7 +248,7 @@ void PhongMaterial::SetupEffect(IEffect *pEffect) const
 		pDGSLEffect->SetAmbientColor(AmbientColor);
 		pDGSLEffect->SetEmissiveColor(EmissiveColor);
 		pDGSLEffect->SetSpecularColor(SpecularColor);
-		pDGSLEffect->SetSpecularPower(1.0f);
+		pDGSLEffect->SetSpecularPower(GetSpecularPower());
 
 		if (GetDiffuseMap())
 		{
@@ -280,6 +280,11 @@ Color PhongMaterial::GetDiffuseColor() const
 Color PhongMaterial::GetSpecularColor() const
 {
 	return SpecularColor;
+}
+
+float PhongMaterial::GetSpecularPower() const
+{
+	return SpecularColor.A();
 }
 
 float PhongMaterial::GetAlpha() const

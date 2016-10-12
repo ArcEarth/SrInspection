@@ -273,7 +273,7 @@ namespace DirectX
 				//static_assert(sizeof...(_SwzArgs) <= 4, "Swizzle element count out of 4");
 				//static_assert(conjunction < std::integral_constant<bool, (_SwzArgs < _Size || _SwzArgs == size_t(-1))>...>::value, "Swizzle index out of source vector size");
 
-				static constexpr bool value = (sizeof...(_SwzArgs) <= 4) && (conjunction < std::integral_constant<bool, (_SwzArgs < _Size || _SwzArgs == size_t(-1))>...>::value);
+				static constexpr bool value = (sizeof...(_SwzArgs) <= 4) && (std::conjunction < std::integral_constant<bool, (_SwzArgs < _Size || _SwzArgs == size_t(-1))>...>::value);
 			};
 
 			using std::conditional;

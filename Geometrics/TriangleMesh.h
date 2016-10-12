@@ -609,6 +609,7 @@ namespace Geometrics
 			revedges.resize(this->indices.size(), -1);
 			_IndexType vsize = this->vertices.size();
 			int esize = this->indices.size();
+			int fsize = this->indices.size() / VertexCount;
 
 			using hash_type = uint64_t;
 			// make sure int for hash is enough
@@ -616,36 +617,33 @@ namespace Geometrics
 			std::unordered_map<hash_type, _IndexType> edges(esize * 2);
 			// max items inside this table should be less than (esize / 2)
 
-			_IndexType fid = 0;
-			for (const Triangle<_IndexType>& tri : this->facets())
+			for(_IndexType fid = 0; fid < fsize; fid++)
 			{
 				for (_IndexType i = 0; i < VertexCount; i++)
 				{
-					_IndexType eid = i + fid * 3;
-					auto e = edge(fid, i);
+					_IndexType eid = i + fid * VertexCount;
+					auto e = this->edge(fid, i);
 
 					hash_type ehash = e.v0 * vsize + e.v1;
 					hash_type revehash = e.v0 + e.v1 * vsize;
 
 					auto revItr = edges.find(revehash);
 					if (revItr == edges.end())
-					{
-						edges[ehash] = fid + 0;
-					}
+						edges[ehash] = eid;
 					else // find reversed edge, remove from edges map
 					{
 						auto revEid = revItr->second;
 						revedges[eid] = revEid;
 						revedges[revEid] = eid;
+						auto reve = this->edge(revEid);
+						assert(reve.v0 == e.v1 && reve.v1 == e.v0);
 						edges.erase(revItr);
 					}
 				}
-
-				++fid;
 			}
 
 			// rebuild the kd tree
-			triangle_bvh.resize(this->indices.size() / 3);
+			triangle_bvh.resize(fsize);
 			std::iota(triangle_bvh.begin(), triangle_bvh.end(), 0);
 			triangle_bvh.rebuild();
 
@@ -768,11 +766,12 @@ namespace Geometrics
 		void find_adjacant_facets_of(IndexType facet_id, _TPred&& pred, _TContainer& result_map) const
 		{
 			auto containment = pred(facet_id);
-			if (!containment) return;
 			result_map.insert(std::make_pair(facet_id, containment));
+			if (!containment) return;
 			for (int e = 0; e < PolygonVertex; e++)
 			{
-				auto rev_edge = this->revedges[facet_id + e];
+				int eid = facet_id * PolygonVertex + e;
+				auto rev_edge = this->revedges[eid];
 				auto adj_face = rev_edge / PolygonVertex;
 				// if not visited yet
 				if (rev_edge != -1 && result_map.find(adj_face) == result_map.end())

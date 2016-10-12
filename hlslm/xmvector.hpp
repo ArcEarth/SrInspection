@@ -56,6 +56,7 @@ namespace DirectX
 			using scalar_type = _T;
 			typedef xmvector SelfType;
 			using intrinsic_vector = detail::get_intrinsic_vector_t<_T, _Size>;
+			using storage_impl = detail::storage_helper<Scalar, false, _Size, 1>;
 
 			static_assert(Size > 0 && sizeof(Scalar) * Size <= 16, "Instantiate xmvector of dimension 0 or greater than 4.");
 
@@ -66,6 +67,10 @@ namespace DirectX
 			inline explicit xmvector(Scalar s) {
 				v = detail::replicate_scalar(s);
 			}
+			
+			inline explicit xmvector(const Scalar* pVector) {
+				storage_impl::load(pVector);
+			}
 
 			inline xmvector(Scalar _x, Scalar _y, Scalar _z = Scalar(0), Scalar _w = Scalar(0)) {
 				v = detail::set_vector(_x, _y, _z, _w);
@@ -73,7 +78,7 @@ namespace DirectX
 
 			this_type& operator= (const this_type& rhs) { this->v = rhs.v; return *this; }
 
-			inline operator XMVECTOR () const
+			inline explicit operator XMVECTOR () const
 			{
 				return v;
 			}
@@ -236,6 +241,10 @@ namespace DirectX
 			// x86 Debug mode crush by these type of implicit constructor
 			inline XM_VECTOR_LOAD_CTOR xmscalar(Scalar s) {
 				this->v = detail::replicate_scalar(s);
+			}
+
+			inline xmscalar(base_type s){
+				this->v = detail::splat<0>(s.v);
 			}
 
 			inline explicit xmscalar(CXMVECTOR xmv) {
@@ -457,12 +466,12 @@ namespace DirectX
 
 			template <>
 			struct storage_helper <uint, false, 4> {
-				static XMVECTOR XM_CALLCONV load(const uint* pSource) { XMLoadInt4(pSource); }
+				static XMVECTOR XM_CALLCONV load(const uint* pSource) { return XMLoadInt4(pSource); }
 				static void XM_CALLCONV store(uint* pDst, FXMVECTOR xmv) { XMStoreInt4(pDst, xmv); }
 			};
 			template <>
 			struct storage_helper <uint, true, 2> {
-				static XMVECTOR XM_CALLCONV load(const uint* pSource) {XMLoadInt2A(pSource); }
+				static XMVECTOR XM_CALLCONV load(const uint* pSource) { return XMLoadInt2A(pSource); }
 				static void XM_CALLCONV store(uint* pDst, FXMVECTOR xmv) { XMStoreInt2A(pDst, xmv); }
 			};
 

@@ -154,7 +154,7 @@ DefaultStaticModel * DefaultStaticModel::CreateFromObjFile(const std::wstring & 
 		pMaterial->Alpha = mat.dissolve;
 		pMaterial->DiffuseColor = Color(mat.diffuse[0], mat.diffuse[1], mat.diffuse[2], 1.0f);
 		pMaterial->AmbientColor = Color(mat.ambient[0], mat.ambient[1], mat.ambient[2], 1.0f);
-		pMaterial->SpecularColor = Color(mat.specular[0], mat.specular[1], mat.specular[2], 1.0f);
+		pMaterial->SpecularColor = Color(mat.specular[0], mat.specular[1], mat.specular[2], mat.shininess);
 		if (!mat.diffuse_texname.empty())
 		{
 			auto fileName = lookup / mat.diffuse_texname;

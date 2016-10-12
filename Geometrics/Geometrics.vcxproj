@@ -109,6 +109,7 @@
       <SDLCheck>true</SDLCheck>
       <FloatingPointModel>Fast</FloatingPointModel>
       <EnableEnhancedInstructionSet>AdvancedVectorExtensions2</EnableEnhancedInstructionSet>
+      <PreprocessorDefinitions>_UNICODE;UNICODE;__SSE3__;__SSE4__;__SSE4_1__;__SSE4_2__;__AVX__;__AVX2__;%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
     <Link>
       <GenerateDebugInformation>true</GenerateDebugInformation>
@@ -125,6 +126,7 @@
       <SDLCheck>true</SDLCheck>
       <FloatingPointModel>Fast</FloatingPointModel>
       <EnableEnhancedInstructionSet>AdvancedVectorExtensions2</EnableEnhancedInstructionSet>
+      <PreprocessorDefinitions>_UNICODE;UNICODE;__SSE3__;__SSE4__;__SSE4_1__;__SSE4_2__;__AVX__;__AVX2__;%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
     <Link>
       <GenerateDebugInformation>true</GenerateDebugInformation>

@@ -138,6 +138,19 @@ namespace DirectX
 		}
 
 		template <size_t _Size>
+		inline xmvector<uint, _Size> XM_CALLCONV operator>(const xmvector<float, _Size> lhs, const xmvector<float, _Size> rhs)
+		{ return greater(lhs, rhs); }
+		template <size_t _Size>
+		inline xmvector<uint, _Size> XM_CALLCONV operator>=(const xmvector<float, _Size> lhs, const xmvector<float, _Size> rhs)
+		{ return greater_equal(lhs, rhs); }
+		template <size_t _Size>
+		inline xmvector<uint, _Size> XM_CALLCONV operator<(const xmvector<float, _Size> lhs, const xmvector<float, _Size> rhs)
+		{ return less(lhs, rhs); }
+		template <size_t _Size>
+		inline xmvector<uint, _Size> XM_CALLCONV operator<=(const xmvector<float, _Size> lhs, const xmvector<float, _Size> rhs)
+		{ return less_equal(lhs, rhs); }
+
+		template <size_t _Size>
 		inline xmvector<uint, _Size> XM_CALLCONV near_equal(const xmvector<float, _Size> lhs, const xmvector<float, _Size> rhs, const xmscalar<float> epsilon)
 		{
 			xmvector<uint, _Size> ret;
@@ -215,6 +228,14 @@ namespace DirectX
 		{
 			xmscalar<float> ret;
 			ret.v = XM_NAMES XMVectorClamp(lhs.v, _min.v, _max.v);
+			return ret;
+		}
+
+		template <typename _Ty, size_t _Size>
+		inline xmvector<_Ty, _Size> XM_CALLCONV select(const xmvector<_Ty, _Size> lhs, const xmvector<_Ty, _Size> rhs, const xmvector<uint, _Size> mask)
+		{
+			xmvector<_Ty, _Size> ret;
+			ret.v = XM_NAMES XMVectorSelect(lhs.v, rhs.v, mask.v);
 			return ret;
 		}
 

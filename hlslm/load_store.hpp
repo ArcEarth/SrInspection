@@ -14,9 +14,6 @@ namespace hlsl
 {
 	namespace traits
 	{
-		template <>
-		struct is_memory_type<DirectX::XMVECTOR> : public std::false_type {};
-
 		// the corresponding xmvector type of a memory vector
 		template <typename _Ty>
 		using if_memory_vector_type = typename traits::enable_memery_traits_t<_Ty>::type;

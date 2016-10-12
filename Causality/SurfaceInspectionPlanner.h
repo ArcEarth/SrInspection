@@ -90,7 +90,7 @@ namespace Causality
 			// The 3D orientation of this patch, where the rotated Z-axis must be the optics axis direction
 			void XM_CALLCONV CaculatePrinciplePatchOrientation();
 
-			void XM_CALLCONV SetUVRect(FXMVECTOR uvc, FXMVECTOR uvext);
+			void XM_CALLCONV SetSurfaceCurveToUVRect(FXMVECTOR uvc, FXMVECTOR uvext);
 			void UpdateGeometry(I2DFactory* pFactory, bool smooth = false);
 			void DrawDecal(I2DContext* pContext, ID2D1SolidColorBrush* target);
 			void UpdateDecalTransformMatrix();
