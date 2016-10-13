@@ -5,7 +5,6 @@
 #include <atomic>
 #include <Textures.h>
 #include <Geometrics\Extrusion.h>
-#include <d2d1_3helper.h>
 
 namespace Causality
 {
