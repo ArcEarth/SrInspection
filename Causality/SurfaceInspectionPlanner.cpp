@@ -531,6 +531,12 @@ void SurfaceInspectionPlanner::SetWorkload(VisualObject * pVO)
 	m_state = State_Initializing;
 
 	auto pModel = pVO ? pVO->RenderModel() : nullptr;
+	if (!pModel)
+	{
+		MessageBoxA(nullptr, "Workload file dose not exist", "Failed to load file",0);
+		std::terminate();
+	}
+
 	SetWorkloadFillView(pModel, pVO);
 
 	m_workloadObj = pVO;
