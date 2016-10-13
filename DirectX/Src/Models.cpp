@@ -95,8 +95,12 @@ void MeshBuffer::Draw(ID3D11DeviceContext *pContext, IEffect *pEffect) const
 
 	//if (pEffect)
 	//	pEffect->Apply(pContext);
-
-	pContext->IASetPrimitiveTopology(PrimitiveType);
+	ComPtr<ID3D11HullShader> hs;
+	pContext->HSGetShader(&hs,nullptr,nullptr);
+	auto primitive = PrimitiveType;
+	if (hs)
+		primitive = D3D11_PRIMITIVE_TOPOLOGY_3_CONTROL_POINT_PATCHLIST;
+	pContext->IASetPrimitiveTopology(primitive);
 
 	if (pIndexBuffer)
 	{
@@ -150,7 +154,7 @@ DefaultStaticModel * DefaultStaticModel::CreateFromObjFile(const std::wstring & 
 		pMaterial->Alpha = mat.dissolve;
 		pMaterial->DiffuseColor = Color(mat.diffuse[0], mat.diffuse[1], mat.diffuse[2], 1.0f);
 		pMaterial->AmbientColor = Color(mat.ambient[0], mat.ambient[1], mat.ambient[2], 1.0f);
-		pMaterial->SpecularColor = Color(mat.specular[0], mat.specular[1], mat.specular[2], 1.0f);
+		pMaterial->SpecularColor = Color(mat.specular[0], mat.specular[1], mat.specular[2], mat.shininess);
 		if (!mat.diffuse_texname.empty())
 		{
 			auto fileName = lookup / mat.diffuse_texname;

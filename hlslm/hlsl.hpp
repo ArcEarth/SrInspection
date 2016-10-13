@@ -47,6 +47,17 @@ namespace DirectX
 		template struct xmvector<uint, 2>;
 		template struct xmvector<uint, 3>;
 		template struct xmvector<uint, 4>;
+
+		namespace alias
+		{
+			using float2 = xmvector2f;
+			using float3 = xmvector3f;
+			using float4 = xmvector4f;
+
+			using uint2 = xmvector2i;
+			using uint3 = xmvector2i;
+			using uint4 = xmvector2i;
+		}
 	}
 }
 

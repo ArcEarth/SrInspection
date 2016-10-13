@@ -1,10 +1,10 @@
-struct HSInputNoTex
+struct HSControlPointNoTex
 {
 	float3 Position : WORLDPOS;
 	float3 Normal   : NORMAL;
 };
 
-struct HSInputTex
+struct HSControlPointTex
 {
 	float3 Position : WORLDPOS;
 	float3 Normal   : NORMAL;
@@ -24,7 +24,7 @@ struct PSInputOneLightNoTex
 {
 	float4 pos : SV_POSITION;
 	float3 normal : NORMAL;
-	float3 toEye : TEXCOORD1;
+	float3 pos_ws : TEXCOORD1;
 	float4 lightUv[1] : TEXCOORD2;
 };
 
@@ -32,7 +32,7 @@ struct PSInputTwoLightNoTex
 {
 	float4 pos : SV_POSITION;
 	float3 normal : NORMAL;
-	float3 toEye : TEXCOORD1;
+	float3 pos_ws : TEXCOORD1;
 	float4 lightUv[2] : TEXCOORD2;
 };
 
@@ -41,7 +41,7 @@ struct PSInputThreeLightNoTex
 	float4 pos : SV_POSITION;
 	float2 uv : TEXCOORD0;
 	float3 normal : NORMAL;
-	float3 toEye : TEXCOORD2;
+	float3 pos_ws : TEXCOORD2;
 	float4 lightUv[3] : TEXCOORD2;
 };
 
@@ -49,7 +49,7 @@ struct PSInputFourLightNoTex
 {
 	float4 pos : SV_POSITION;
 	float3 normal : NORMAL;
-	float3 toEye : TEXCOORD1;
+	float3 pos_ws : TEXCOORD1;
 	float4 lightUv[4] : TEXCOORD2;
 };
 
@@ -58,8 +58,8 @@ struct PSInputOneLightTex
 	float4 pos : SV_POSITION;
 	float2 uv : TEXCOORD0;
 	float3 normal : NORMAL;
-	float3 toEye : TEXCOORD2;
-	float4 lightUv[1] : TEXCOORD3;
+	float3 pos_ws : TEXCOORD1;
+	float4 lightUv[1] : TEXCOORD2;
 };
 
 struct PSInputOneLightTexBump
@@ -67,7 +67,7 @@ struct PSInputOneLightTexBump
 	float4 pos : SV_POSITION;
 	float2 uv : TEXCOORD0;
 	float3 normal : NORMAL;
-	float3 toEye : TEXCOORD2;
+	float3 pos_ws : TEXCOORD2;
 	float4 lightUv[1] : TEXCOORD3;
 	float3 tangent : TANGENT;
 	float3 binormal : BINORMAL;
@@ -81,7 +81,7 @@ struct PSInputTwoLightTex
 	float3 normal : NORMAL;
 	float3 tangent : TANGENT;
 	float3 binormal : BINORMAL;
-	float3 toEye : TEXCOORD1;
+	float3 pos_ws : TEXCOORD1;
 	float4 lightUv[2] : TEXCOORD2;
 };
 
@@ -92,7 +92,7 @@ struct PSInputThreeLightTex
 	float3 normal : NORMAL;
 	float3 tangent : TANGENT;
 	float3 binormal : BINORMAL;
-	float3 toEye : TEXCOORD1;
+	float3 pos_ws : TEXCOORD1;
 	float4 lightUv[3] : TEXCOORD2;
 };
 
@@ -103,7 +103,7 @@ struct PSInputFourLightTex
 	float3 normal : NORMAL;
 	float3 tangent : TANGENT;
 	float3 binormal : BINORMAL;
-	float3 toEye : TEXCOORD1;
+	float3 pos_ws : TEXCOORD1;
 	float4 lightUv[4] : TEXCOORD2;
 };
 
@@ -165,7 +165,7 @@ struct PSInputScreenSpaceNoTex
 	float4 pos : SV_POSITION;
 	float4 posUV : TEXCOORD0;
 	float3 normal : NORMAL;
-	float3 toEye : TEXCOORD1;
+	float3 pos_ws : TEXCOORD1;
 };
 
 struct PSInputScreenSpaceTex
@@ -174,7 +174,7 @@ struct PSInputScreenSpaceTex
 	float2 uv			: TEXCOORD0;
 	float4 posUV        : TEXCOORD1;
 	float3 normal		: NORMAL;
-	float3 toEye        : TEXCOORD3;
+	float3 pos_ws        : TEXCOORD3;
 	float3 tangent      : TANGENT;
 	float3 binormal     : BINORMAL;
 };

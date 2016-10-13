@@ -294,7 +294,7 @@ namespace DirectX
 			{
 				using traits = traits::memery_vector_traits<_Ty>;
 				auto temp = this->eval();
-				using sl_impl = detail::storage_helper<typename traits::scalar, is_aligned<_Ty>::value, traits::cols, traits::rows>;
+				using sl_impl = detail::storage_helper<typename traits::scalar, ::hlsl::traits::is_aligned<_Ty>::value, traits::cols, traits::rows>;
 				sl_impl::store(reinterpret_cast<typename traits::scalar*>(&storage), temp);
 			}
 
@@ -304,7 +304,7 @@ namespace DirectX
 			{
 				static_assert(is_lvalue, "Swizzle expression contains duplication (like v.xxx) is not l-valued, and can not be assign to");
 				using traits = traits::memery_vector_traits<_Ty>;
-				using sl_impl = detail::storage_helper<typename traits::scalar, is_aligned<_Ty>::value, traits::cols, traits::rows>;
+				using sl_impl = detail::storage_helper<typename traits::scalar, ::hlsl::traits::is_aligned<_Ty>::value, traits::cols, traits::rows>;
 				auto temp = sl_impl::load(reinterpret_cast<const typename traits::scalar*>(&memery_vector));
 				this->assign(temp);
 			}

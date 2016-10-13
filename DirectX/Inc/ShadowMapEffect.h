@@ -4,7 +4,7 @@
 namespace DirectX
 {
 	class ShadowMapEffect :
-		public IEffect, public IEffectMatrices, public IEffectFog, public IEffectPhongMaterial, public IEffectSkinning , public IEffectLightsShadow
+		public IEffect, public IEffectMatrices, public IEffectFog, public IEffectPhongMaterial, public IEffectSkinning , public IEffectLightsShadow, public IEffectTessellation
 	{
 	public:
 		ShadowMapEffect(ID3D11Device* device);
@@ -69,6 +69,9 @@ namespace DirectX
 		virtual void XM_CALLCONV SetLightView(int whichLight, FXMMATRIX value) override;
 		virtual void XM_CALLCONV SetLightProjection(int whichLight, FXMMATRIX value) override;
 
+		// Inherited via IEffectTessellation
+		virtual void __cdecl EnableTessellation(bool enable, float screen_space_triangle_size = 0) override;
+		virtual void __cdecl SetDisplacementMap(ID3D11ShaderResourceView* pTexture) override;
 	private:
 		class Impl;
 		std::unique_ptr<Impl> pImpl;

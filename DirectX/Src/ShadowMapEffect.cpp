@@ -2,6 +2,7 @@
 #include "ShadowMapEffect.h"
 #include "EffectCommon.h"
 #include <CommonStates.h>
+#include "DemandCreate.h"
 
 using namespace DirectX;
 
@@ -28,9 +29,13 @@ struct ShadowMapEffectTraits
 {
 	typedef ShadowMapEffectCBuffer ConstantBufferType;
 
-	static const int VertexShaderCount = 16;  // 4 + 4 + 12
+	static const int VertexShaderCount = 22;  // 4 + 4 + 12 + 6
 	static const int PixelShaderCount = 11;	// 2 + 2 + 3
-	static const int ShaderPermutationCount = 24; // 6 + 6 + 12
+	static const int ShaderPermutationCount = 25; // 6 + 6 + 12 + 1
+	static const int GeometryShaderCount = 1;
+	static const int HullShaderCount = 1;
+	static const int DomainShaderCount = 1;
+
 
 	static const int TexturePermCount = 4; // NoTex,Tex,TexBump,TexBumpSpe
 	static const int LightPermCount = 1;
@@ -73,7 +78,7 @@ namespace
 #include "Shaders/Windows/ShadowMapEffectPS_PS_BinaryOneLightNoTex.inc"
 #include "Shaders/Windows/ShadowMapEffectPS_PS_BinaryOneLightTex.inc"
 
-// Screen Space No Texture VS 
+	// Screen Space No Texture VS 
 #include "Shaders/Windows/ShadowMapEffectVS_VS_ScreenSpaceNoBoneNoTex.inc"
 #include "Shaders/Windows/ShadowMapEffectVS_VS_ScreenSpaceOneBoneNoTex.inc"
 #include "Shaders/Windows/ShadowMapEffectVS_VS_ScreenSpaceTwoBoneNoTex.inc"
@@ -94,9 +99,43 @@ namespace
 #include "Shaders/Windows/ShadowMapEffectPS_PS_ScreenSpaceTex.inc"
 #include "Shaders/Windows/ShadowMapEffectPS_PS_ScreenSpaceTexBump.inc"
 
+
+#include "Shaders/Windows/ShadowMapEffectVS_VS_TessNoBoneNoTex.inc"
+#include "Shaders/Windows/ShadowMapEffectVS_VS_TessOneBoneNoTex.inc"
+#include "Shaders/Windows/ShadowMapEffectVS_VS_TessFourBoneNoTex.inc"
+#include "Shaders/Windows/ShadowMapEffectVS_VS_TessNoBoneTex.inc"
+#include "Shaders/Windows/ShadowMapEffectVS_VS_TessOneBoneTex.inc"
+#include "Shaders/Windows/ShadowMapEffectVS_VS_TessFourBoneTex.inc"
+
+#include "Shaders/Windows/PNTessellation_PN_HS_Tex.inc"
+#include "Shaders/Windows/PNTessellation_PN_DS_OneLightTex.inc"
 #endif
 }
 
+ID3D11HullShader*	EffectDeviceResources::DemandCreateHullShader(_Inout_ Microsoft::WRL::ComPtr<ID3D11HullShader>& hullShader, ShaderBytecode const& bytecode)
+{
+	return DemandCreate(hullShader, mMutex, [&](ID3D11HullShader** pResult) -> HRESULT
+	{
+		HRESULT hr = mDevice->CreateHullShader(bytecode.code, bytecode.length, nullptr, pResult);
+
+		if (SUCCEEDED(hr))
+			SetDebugObjectName(*pResult, "DirectXTK:Effect");
+
+		return hr;
+	});
+}
+ID3D11DomainShader* EffectDeviceResources::DemandCreateDomainShader(_Inout_ Microsoft::WRL::ComPtr<ID3D11DomainShader> & domainShader, ShaderBytecode const& bytecode)
+{
+	return DemandCreate(domainShader, mMutex, [&](ID3D11DomainShader** pResult) -> HRESULT
+	{
+		HRESULT hr = mDevice->CreateDomainShader(bytecode.code, bytecode.length, nullptr, pResult);
+
+		if (SUCCEEDED(hr))
+			SetDebugObjectName(*pResult, "DirectXTK:Effect");
+
+		return hr;
+	});
+}
 
 typedef ShadowMapEffectTraits			EffectTraitsType;
 typedef EffectBase<EffectTraitsType>	EffectBaseType;
@@ -109,14 +148,16 @@ inline ShaderBytecode MakeShaderByteCode(const BYTE(&bytecode)[Size])
 	return ShaderBytecode{ bytecode ,sizeof(bytecode) };
 }
 
+const ShaderBytecode EffectBaseType::HullShaderBytecode[] =
+{
+	MakeShaderByteCode(PNTessellation_PN_HS_Tex),
+};
 
-//const ShaderBytecode EffectBaseType::VertexShaderBytecode[] =
-//{
-//	MakeShaderByteCode(ShadowMapEffectVS_VS_OneLightNoBoneNoTex),
-//	MakeShaderByteCode(ShadowMapEffectVS_VS_OneLightNoBoneTex),
-//	MakeShaderByteCode(ShadowMapEffectVS_VS_OneLightFourBoneNoTex),
-//	MakeShaderByteCode(ShadowMapEffectVS_VS_OneLightFourBoneTex),
-//};
+const ShaderBytecode EffectBaseType::DomainShaderBytecode[] =
+{
+	MakeShaderByteCode(PNTessellation_PN_DS_OneLightTex),
+};
+
 const ShaderBytecode EffectBaseType::VertexShaderBytecode[] =
 {
 	MakeShaderByteCode(ShadowMapEffectVS_VS_OneLightNoBoneNoTex),
@@ -137,6 +178,13 @@ const ShaderBytecode EffectBaseType::VertexShaderBytecode[] =
 	MakeShaderByteCode(ShadowMapEffectVS_VS_ScreenSpaceFourBoneNoTex),
 	MakeShaderByteCode(ShadowMapEffectVS_VS_ScreenSpaceFourBoneTex),
 	MakeShaderByteCode(ShadowMapEffectVS_VS_ScreenSpaceFourBoneTexBump),
+
+	MakeShaderByteCode(ShadowMapEffectVS_VS_TessNoBoneNoTex),
+	MakeShaderByteCode(ShadowMapEffectVS_VS_TessNoBoneTex),
+	MakeShaderByteCode(ShadowMapEffectVS_VS_TessOneBoneNoTex),
+	MakeShaderByteCode(ShadowMapEffectVS_VS_TessOneBoneTex),
+	MakeShaderByteCode(ShadowMapEffectVS_VS_TessFourBoneNoTex),
+	MakeShaderByteCode(ShadowMapEffectVS_VS_TessFourBoneTex),
 };
 
 
@@ -168,6 +216,8 @@ const int EffectBaseType::VertexShaderIndices[] =
 	14,	// FourBone x Tex
 	15,	// FourBone x Tex Bump
 	15,	// FourBone x Tex Bump Specular
+
+	17, // Tess x NoBone x Tex
 };
 
 
@@ -221,7 +271,14 @@ const int EffectBaseType::PixelShaderIndices[] =
 	6,      // Screen x Tex
 	7,		// Screen x Tex Bump
 	7,		// Screen x Tex Bump Specular
+
+	1,		// OneLight x Tex
 };
+
+
+int EffectBaseType::HullShaderIndices[] = { -1, -1,-1, -1,-1, -1,-1, -1,-1, -1,-1, -1,-1, -1,-1, -1,-1, -1,-1, -1,-1, -1,-1, -1, 0 };
+int EffectBaseType::DomainShaderIndices[] = { -1, -1,-1, -1,-1, -1,-1, -1,-1, -1,-1, -1,-1, -1,-1, -1,-1, -1,-1, -1,-1, -1,-1, -1, 0 };
+
 
 namespace DirectX
 {
@@ -251,6 +308,7 @@ public:
 
 	ShadowMapEffectMode				mode;
 	bool							alpha_discard;
+	bool							tessellation;
 	CommonStates					commonStates;
 	BonesCBuffer					boneConstant;
 	ConstantBuffer<BonesCBuffer>	BoneTransforms;
@@ -273,16 +331,25 @@ public:
 		: EffectBase(device),
 		BoneTransforms(device),
 		commonStates(device),
-		weightsPerVertex(0), 
+		weightsPerVertex(0),
 		lightsEnabled(1),
 		mode(LightSpaceShadowRender),
 		alpha_discard(false),
+		tessellation(false),
 		pNormalTexture(NULL), pSpecularTexture(NULL), pScreenSpaceShadowMap(NULL), pScreenSpaceShadowMapSharp(NULL)
 	{
 		static_assert(_countof(Base::VertexShaderIndices) == Traits::ShaderPermutationCount, "array/max mismatch");
 		static_assert(_countof(Base::VertexShaderBytecode) == Traits::VertexShaderCount, "array/max mismatch");
 		static_assert(_countof(Base::PixelShaderBytecode) == Traits::PixelShaderCount, "array/max mismatch");
 		static_assert(_countof(Base::PixelShaderIndices) == Traits::ShaderPermutationCount, "array/max mismatch");
+
+		HullShaderIndices[24] = 0;
+		DomainShaderIndices[24] = 0;
+
+		constants.TessellationAlpha = 1.0f;
+		constants.TessellationFactor = 3.0f;
+		constants.TessellationScreenFactor.x = 1.0f / (2.0f * 20.0f / 1920.0f);
+		constants.TessellationScreenFactor.y = 1.0f / (2.0f * 20.0f / 1080.0f);
 
 		XMMATRIX id = XMMatrixIdentity();
 
@@ -294,7 +361,7 @@ public:
 		}
 
 		CD3D11_DEFAULT def;
-		CD3D11_SAMPLER_DESC samplerDesc (def);
+		CD3D11_SAMPLER_DESC samplerDesc(def);
 		samplerDesc.ComparisonFunc = D3D11_COMPARISON_LESS;
 		samplerDesc.Filter = D3D11_FILTER_COMPARISON_MIN_MAG_MIP_LINEAR;
 		samplerDesc.AddressU = D3D11_TEXTURE_ADDRESS_BORDER;
@@ -303,11 +370,14 @@ public:
 
 		ThrowIfFailed(
 			device->CreateSamplerState(&samplerDesc, &pShadowMapSampler)
-			);
+		);
 	}
 
 	int GetCurrentShaderPermutation() const
 	{
+		//if (tessellation) return 24;
+		if (weightsPerVertex == 0 && texture != nullptr) return 24;
+
 		static const int bonesConv[] = { 0, -1 ,-1 ,-1, 1 };
 		//static const int bonesConv2[] = { 0, 1 , 2 ,-1, 3 };
 
@@ -343,8 +413,11 @@ public:
 			XMMATRIX ViewProj = XMMatrixMultiply(matrices.view, matrices.projection);
 			constants.World = XMMatrixTranspose(matrices.world);
 			constants.ViewProjection = XMMatrixTranspose(ViewProj);
+			XMMATRIX invView = XMMatrixInverse(nullptr, matrices.view);
+			constants.EyePosition = invView.r[3];
 			//worldViewProjConstant = XMMatrixTranspose(XMMatrixMultiply(worldView, projection));
 
+			dirtyFlags &= ~EffectDirtyFlags::EyePosition;
 			dirtyFlags &= ~EffectDirtyFlags::WorldViewProj;
 			dirtyFlags |= EffectDirtyFlags::ConstantBuffer;
 		}
@@ -380,6 +453,11 @@ public:
 
 		ApplyShaders(pContext, permutation);
 
+		if (tessellation)
+		{
+			assert(weightsPerVertex == 0);
+		}
+
 		// Setup Bone Transforms
 		if (weightsPerVertex > 0 && dirtyFlags & EffectDirtyFlags::BoneTransforms)
 		{
@@ -390,8 +468,8 @@ public:
 		}
 
 		// Set SRVs and Samplers for PS
-		ID3D11ShaderResourceView* pSrvs[] = { texture.Get(),pNormalTexture,pSpecularTexture,pShadowMaps[0],pShadowMaps[1],pShadowMaps[2],pShadowMaps[3]};
-		ID3D11SamplerState* pSamplers[] = { commonStates.AnisotropicWrap(),pShadowMapSampler.Get(),commonStates.PointClamp()};
+		ID3D11ShaderResourceView* pSrvs[] = { texture.Get(),pNormalTexture,pSpecularTexture,pShadowMaps[0],pShadowMaps[1],pShadowMaps[2],pShadowMaps[3] };
+		ID3D11SamplerState* pSamplers[] = { commonStates.AnisotropicWrap(),pShadowMapSampler.Get(),commonStates.PointClamp() };
 		if (mode == ScreenSpaceShadowRender) // Use screen space shadow map
 		{
 			pSrvs[3] = pScreenSpaceShadowMap;
@@ -409,7 +487,7 @@ public:
 		if (constants.MaterialDiffuse.w < 0.85)
 			pContext->OMSetDepthStencilState(commonStates.DepthRead(), -1);
 		else
-			pContext->OMSetDepthStencilState(commonStates.DepthDefault(),-1);
+			pContext->OMSetDepthStencilState(commonStates.DepthDefault(), -1);
 
 	}
 };
@@ -656,16 +734,16 @@ void ShadowMapEffect::SetLightShadowMap(int whichLight, ID3D11ShaderResourceView
 	pImpl->pShadowMaps[whichLight] = pTexture;
 }
 
-void XM_CALLCONV ShadowMapEffect::SetLightView(int whichLight, FXMMATRIX value)
+void XM_CALLCONV ShadowMapEffect::SetLightView(int whichLight, FXMMATRIX view)
 {
-	pImpl->lights[whichLight].View = value;
+	XMMATRIX viewInverse = XMMatrixInverse(nullptr, view);
+	pImpl->lights[whichLight].View = view;
 
 	// Extract Light Position and orientation
-	pImpl->lights[whichLight].SourcePosition = -value.r[3];
-	pImpl->lights[whichLight].SourcePosition.w = 1.0f;
+	pImpl->lights[whichLight].SourcePosition = viewInverse.r[3];
 
-	XMMATRIX viewTrans = XMMatrixTranspose(value);
-	pImpl->lights[whichLight].FocusDirection = XMVectorSelect(g_XMSelect1110.v, viewTrans.r[2], g_XMSelect1110.v);
+	//XMMATRIX viewTrans = XMMatrixTranspose(view);
+	pImpl->lights[whichLight].FocusDirection = XMVectorSelect(g_XMSelect1110.v, -viewInverse.r[2], g_XMSelect1110.v);
 
 	pImpl->dirtyFlags |= EffectDirtyFlags::LightsViewProjection;
 }
@@ -674,4 +752,12 @@ void XM_CALLCONV ShadowMapEffect::SetLightProjection(int whichLight, FXMMATRIX v
 {
 	pImpl->lights[whichLight].Projection = value;
 	pImpl->dirtyFlags |= EffectDirtyFlags::LightsViewProjection;
+}
+
+void __cdecl ShadowMapEffect::EnableTessellation(bool enable, float screen_space_triangle_size)
+{
+}
+
+void ShadowMapEffect::SetDisplacementMap(ID3D11ShaderResourceView * pTexture)
+{
 }

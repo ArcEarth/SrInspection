@@ -21,26 +21,27 @@ namespace DirectX {
 		// Otherwise returns the (persudo) distance t, always satisfy Origin + t*Dir = intersection point  
 		inline XMVECTOR XM_CALLCONV RayIntersects2D(FXMVECTOR Origin, FXMVECTOR Dir, FXMVECTOR A0, GXMVECTOR A1)
 		{
-			XMVECTOR v1 = A1 - A0;
-			XMVECTOR v2 = Origin - A0;
-			XMVECTOR v3 = Dir;
+			XMVECTOR v1 = Origin - A0;
+			XMVECTOR v2 = A1 - A0;
+			XMVECTOR v3 = XMVectorSwizzle<1, 0, 2, 3>(Dir) * g_XMNegateX.v;
 
-			XMVECTOR D = XMVectorReciprocalEst(XMVector2Cross(v2, v3));
+			XMVECTOR D = XMVectorReciprocal(XMVector2Dot(v2, v3));
 			XMVECTOR t1 = XMVector2Cross(v2, v1);
-			XMVECTOR t2 = XMVector2Cross(v1, v3);
-			XMVECTOR mask = XMVectorGreater(t2, XMVectorZero());
-			// t1 = cross(v1,v3) > 0 ? t1 : -t1;
-			t1 = XMVectorXorInt(t1, XMVectorAndInt(mask, XMVectorReplicate(-0.f)));
+			XMVECTOR t2 = XMVector2Dot(v1, v3);
+
+			//XMVECTOR mask = XMVectorGreater(t2, XMVectorZero());
+			//// t1 = dot(v1,v3) > 0 ? t1 : -t1;
+			//t1 = XMVectorXorInt(t1, XMVectorAndInt(mask, XMVectorReplicate(-0.f)));
 			t1 = XMVectorMultiply(t1, D);
 			t2 = XMVectorMultiply(t2, D);
 
 			// test for t1 > 0 && t2 > 0 && t2 <= 1
-			mask = XMVectorGreater(t1, XMVectorZero());
+			XMVECTOR mask = XMVectorGreaterOrEqual(t1, XMVectorZero());
 			mask = XMVectorAndInt(mask, XMVectorGreaterOrEqual(t2, XMVectorZero()));
 			mask = XMVectorAndInt(mask, XMVectorLessOrEqual(t2, XMVectorSplatOne()));
-			
+
 			//t1 = XMVectorMultiplyAdd(t1,v3,Origin);
-			t1 = XMVectorSelect(g_XMQNaN, t1, mask);
+			t1 = XMVectorSelect(g_XMQNaN.v, t1, mask);
 			return t1;
 		}
 

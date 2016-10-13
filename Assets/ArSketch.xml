@@ -18,7 +18,7 @@
       <!--<light name="sun_light" primary="false" color="#FFCCBBAA" position="5,25,25" near="8" far="60" focus="0,0,0" up="0,0,-1" hfov="30" wfov="30" aspect="1" perspective="false" drops_shadow="true" resolution="2048" />-->
       <default_keyboard_shorcuts/>
 
-      <light name="sun_light" primary="false" color="#FF808080" position="2,5,2" near="4" far="8" focus="0,0,0" up="0,0,-1" hfov="2.75" wfov="2.75" aspect="1" perspective="false" drops_shadow="true" resolution="2048" />
+      <light name="sun_light" primary="false" color="#FFFFFFFF" position="2,5,2" near="4" far="8" focus="0,0,0" up="0,0,-1" hfov="2.75" wfov="2.75" aspect="1" perspective="false" drops_shadow="true" resolution="2048" />
 
       <!--
       ==== HOW TO SETUP <first_person_keyboard_mouse_control> ====
@@ -26,7 +26,7 @@
       turn_button='1' is right-button
       turn_button='2' is middle-button
       -->
-      <shadow_camera name="primary_camera" primary="true" background="#FFFFFFFF" position="0,1.7,2.5" focus="0,0,0" up="0,1,0" far="30">
+      <shadow_camera name="primary_camera" primary="true" background="#888888FF" position="0,1.7,2.5" focus="0,0,0" up="0,1,0" far="30">
         <first_person_keyboard_mouse_control turn_button="1" speed="2.0" turing_speed="1.0" flip_x="true" flip_y="true" movement_keys="WASD" />
       </shadow_camera>
 
@@ -41,7 +41,7 @@
 
       <!--<object name="table" position="0,0.0,0" scale="1.0,1.0,1.0" mesh="{table_mesh}"/>-->
 
-      <object name="workspace" position="0,-0.01,0" scale="2.0,0.005,2.0" mesh="{cube_mesh}"/>
+      <object name="workspace" position="0,-0.01,0" scale="10.0,0.005,10.0" mesh="{cube_mesh}"/>
 
       <object name="workload" mesh="{ceil_mesh}">
         <surface_inspector  tessellation="10" patch_size="0.15">

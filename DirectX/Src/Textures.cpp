@@ -565,7 +565,7 @@ StagingTexture2D::StagingTexture2D(ID3D11DeviceContext* pContext, const Texture2
 	if (resType != D3D11_RESOURCE_DIMENSION_TEXTURE2D)
 		ThrowIfFailed(HRESULT_FROM_WIN32(ERROR_NOT_SUPPORTED));
 
-	ScopedObject<ID3D11Texture2D> pTexture;
+	ComPtr<ID3D11Texture2D> pTexture;
 	HRESULT hr = pSource->QueryInterface<ID3D11Texture2D>(&pTexture);
 
 	ThrowIfFailed(hr);
@@ -574,7 +574,7 @@ StagingTexture2D::StagingTexture2D(ID3D11DeviceContext* pContext, const Texture2
 
 	pTexture->GetDesc(&m_Description);
 
-	ScopedObject<ID3D11Device> d3dDevice;
+	ComPtr<ID3D11Device> d3dDevice;
 	pContext->GetDevice(&d3dDevice);
 
 	if (m_Description.SampleDesc.Count > 1)
@@ -583,7 +583,7 @@ StagingTexture2D::StagingTexture2D(ID3D11DeviceContext* pContext, const Texture2
 		m_Description.SampleDesc.Count = 1;
 		m_Description.SampleDesc.Quality = 0;
 
-		ScopedObject<ID3D11Texture2D> pTemp;
+		ComPtr<ID3D11Texture2D> pTemp;
 		hr = d3dDevice->CreateTexture2D(&m_Description, 0, &pTemp);
 		ThrowIfFailed(hr);
 

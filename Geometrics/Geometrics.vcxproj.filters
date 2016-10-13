@@ -50,9 +50,6 @@
     <ClInclude Include="BVAlgorithmsExt.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="KdBVH.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="csg.h">
       <Filter>Header Files</Filter>
     </ClInclude>
@@ -63,6 +60,12 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="Primitives.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="bvh_deprecated.h">
+      <Filter>Source Files</Filter>
+    </ClInclude>
+    <ClInclude Include="bvh.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

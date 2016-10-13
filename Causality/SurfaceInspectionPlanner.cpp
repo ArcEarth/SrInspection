@@ -12,19 +12,36 @@
 #include "Keyboard.h"
 #include "TrackerdPen.h"
 
+_HLSL_REGISTER_VECTOR_TYPE_(DirectX::Vector2, float, 1, 2);
+_HLSL_REGISTER_VECTOR_TYPE_(DirectX::Vector3, float, 1, 3);
+_HLSL_REGISTER_VECTOR_TYPE_(DirectX::Vector4, float, 1, 4);
+
+template <typename _Scalar, size_t _Dim>
+inline std::ostream& operator<<(std::ostream& lhs, hlsl::xmvector<_Scalar, _Dim> v)
+{
+	_Scalar s[_Dim]; s << v;
+	for (int i = 0; i < _Dim; i++)
+		lhs << s[i] << ',';
+	lhs << "\b";
+	return lhs;
+}
+
+
 using namespace Causality;
 using namespace Causality::SurfaceInspection;
 using namespace DirectX::Scene;
 using namespace Causality::Math;
 using namespace DirectX;
 using namespace DirectX::VertexTraits;
+using namespace ::hlsl;
+using namespace ::hlsl::alias;
 
 REGISTER_SCENE_OBJECT_IN_PARSER(surface_inspector, SurfaceInspectionPlanner);
 
 float g_ControlPointsRaius = 0.005f;
 float g_ControlPointsConnectionRadius = 0.002;
 bool  g_VisualizeNormal = false;
-static constexpr size_t g_DecalResolution = 1024;
+static constexpr size_t g_DecalResolution = 2048;
 
 namespace Causality
 {
@@ -399,31 +416,33 @@ void SurfaceInspectionPlanner::TesselateBezeirPatch(int tessellation, DirectX::S
 
 InspectionPatch * SurfaceInspectionPlanner::AddInspectionPatch(FXMVECTOR uv, int fid)
 {
-	m_isPatches.emplace_back();
+	m_isPatches.push_back(m_previwPatch);
 	auto& patch = m_isPatches.back();
-	patch.setSurface(&m_mesh);
-	patch.CurvtureDistribution = m_previwPatch.CurvtureDistribution;
-	patch.SetUVRect(uv, patch.m_uvExtent);
-	auto pFactory = this->Scene->Get2DFactory();
-	patch.UpdateGeometry(pFactory);
-	patch.CaculateCameraFrustum();
 	CaculateCameraPath();
+	patch.m_opticity = 0.8f;
+	//patch.setSurface(&m_mesh);
+	//patch.CurvtureDistribution = m_previwPatch.CurvtureDistribution;
+	//patch.SetSurfaceCurveToUVRect(uv, m_previwPatch.m_uvExtent);
+	//auto pFactory = this->Scene->Get2DFactory();
+	//patch.UpdateGeometry(pFactory);
+	//patch.CaculateCameraFrustum();
+	//CaculateCameraPath();
 	return &patch;
 }
 
 void SurfaceInspectionPlanner::CaculateCameraPath()
 {
 	m_isCameraPath.push_back(m_isCameraPath.size());
-	auto dis = [this](int i, int j) {return Vector3::Distance(m_isPatches[i].m_cameraFrustum.Origin, m_isPatches[j].m_cameraFrustum.Origin);};
+	auto dis = [this](int i, int j) {return Vector3::Distance(m_isPatches[i].m_cameraFrustum.Origin, m_isPatches[j].m_cameraFrustum.Origin); };
 
 	vector<int> path(m_isCameraPath);
 	auto& spath = m_isCameraPath;
 	int n = m_isCameraPath.size();
 	float minDis = std::numeric_limits<float>::max();
-	vector<BOOL> visited(n,false);
+	vector<BOOL> visited(n, false);
 	visited[m_isCameraPath[0]] = true;
 
-	function<void(int,int)> search_recur = [&](int k, float sum) -> void
+	function<void(int, int)> search_recur = [&](int k, float sum) -> void
 	{
 		if (k == n && sum < minDis)
 		{
@@ -575,8 +594,8 @@ void SurfaceInspectionPlanner::Update(time_seconds const & time_delta)
 				}
 				else
 				{
-					m_previwPatch.m_uvCenter = get_uv(pv);
-					m_previwPatch.UpdateDecalTransformMatrix();
+					m_previwPatch.m_isInfo = m_isInfo; // copy the intersection info
+					m_previwPatch.SetSurfaceCurveToUVRect(get_uv(pv), m_previwPatch.m_uvExtent);
 					m_previwPatch.CaculateCameraFrustum();
 					m_declDirtyFalg = 1;
 				}
@@ -618,24 +637,78 @@ bool XM_CALLCONV SurfaceInspectionPlanner::HitTest(FXMVECTOR pos_world, FXMVECTO
 	m_isHit = false;
 	XMVECTOR pos = XMVector3Transform(pos_world, invworld);
 	XMVECTOR dir = XMVector3TransformNormal(dir_world, invworld);
+	dir = XMVector3Normalize(dir);
+	m_castRay = DirectX::Ray(pos, dir);
 
-	std::vector<Geometrics::MeshRayIntersectionInfo> intersecs;
+	//std::vector<Geometrics::MeshRayIntersectionInfo> intersecs;
 	float dis;
 
-	dir = XMVector3Normalize(dir);
 	// fast rejection path
-	if (!m_decalModel->GetOrientedBoundingBox().Intersects(pos, dir, dis))
-		return false;
-	if (!m_decalModel->GetBoundingBox().Intersects(pos, dir, dis))
-		return false;
+	//if (!m_decalModel->GetOrientedBoundingBox().Intersects(pos, dir, dis))
+	//	return false;
+	//if (!m_decalModel->GetBoundingBox().Intersects(pos, dir, dis))
+	//	return false;
 
-	m_mesh.intersect(pos, dir, &intersecs);
-	if (!intersecs.empty())
+	m_isInfo = m_mesh.first_intersect(pos, dir);
+	m_isHit = m_isInfo.facet >= 0;
+	//if (!intersecs.empty())
+	//{
+	//	m_isHit = true;
+	//	m_isInfo = intersecs[0];
+	//}
+	return m_isHit;
+}
+
+int DrawBVH(const TriangleMeshType::triangle_bvh_t& tree, int node, int maxDepth)
+{
+	if (maxDepth <= 0) return 0;
+	auto&& aabb = tree.get_volumn(node);
+	XMVECTOR color = (aabb.intersected ? Colors::Green : Colors::Orange);
+	auto children = tree.get_children(node);
+
+	if (aabb.intersected)
+		color = DirectX::XMVectorSetW(color, 0.2f);
+	else
+		color = DirectX::XMVectorSetW(color, 0.4f);
+
+	if (children.empty())
+		color = (aabb.intersected ? Colors::Lime : Colors::Orange);
+
+	DirectX::BoundingGeometry geo(aabb.get_dxbox());
+	DrawGeometryOutline(geo, color);
+
+	int level = 100;
+	if (aabb.intersected)
 	{
-		m_isHit = true;
-		m_isInfo = intersecs[0];
+		level = maxDepth;
+		for (auto& c : children)
+			level = std::min(level, DrawBVH(tree, c, maxDepth - 1));
 	}
-	return !intersecs.empty();
+	return level;
+}
+
+int DrawBVH2(const TriangleMeshType::triangle_bvh_t& tree, int node, DirectX::Ray ray)
+{
+	std::vector<int> stck; stck.reserve(20);
+	int nid = node;
+	while (nid >= 0)
+	{
+		stck.push_back(nid);
+		nid = tree.get_parent(nid);
+	}
+	int errornode = -1;
+	for (int i = stck.size() - 1; i >= 0; --i)
+	{
+		if (errornode < 0 && !tree.get_volumn(stck[i]).intersected)
+			errornode = i;
+		if (errornode >= 0)
+		{
+			int node = stck[i];
+			DirectX::BoundingGeometry geo(tree.get_volumn(node).get_dxbox());
+			DrawGeometryOutline(geo, Colors::Red);
+		}
+	}
+	return errornode;
 }
 
 void SurfaceInspectionPlanner::Render(IRenderContext * pContext, IEffect * pEffect)
@@ -647,11 +720,34 @@ void SurfaceInspectionPlanner::Render(IRenderContext * pContext, IEffect * pEffe
 	{
 		auto world = m_workloadObj->GlobalTransformMatrix();
 		m_decalModel->Render(pContext, world, pEffect);
-		if (m_isHit || m_isPatches.size() > 0)
+
+		bool shoulddraw = g_DebugView || m_isHit || m_isPatches.size() > 0;
+
+		if (shoulddraw)
 		{
 			auto& darwer = Visualizers::g_PrimitiveDrawer;
 			darwer.SetWorld(world);
 			darwer.Begin();
+
+			const int g_debug_bvh = false;
+			if (g_DebugView && g_debug_bvh)
+			{
+				int level = DrawBVH(m_mesh.triangle_bvh, m_mesh.triangle_bvh.root(), 20);
+
+				int err = DrawBVH2(m_mesh.triangle_bvh, m_isInfo.facet, m_castRay);
+
+				if (err != -1)
+				{
+					auto tri = m_mesh.facet(m_isInfo.facet);
+
+					XMVECTOR v0 = get_position(m_mesh.vertices[tri[0]]);
+					XMVECTOR v1 = get_position(m_mesh.vertices[tri[1]]);
+					XMVECTOR v2 = get_position(m_mesh.vertices[tri[2]]);
+					darwer.DrawLine(v0, v1, Colors::Red);
+					darwer.DrawLine(v1, v2, Colors::Red);
+					darwer.DrawLine(v2, v0, Colors::Red);
+				}
+			}
 
 			if (m_isHit)
 				DrawPatchCamera(m_previwPatch);
@@ -660,6 +756,7 @@ void SurfaceInspectionPlanner::Render(IRenderContext * pContext, IEffect * pEffe
 			{
 				DrawPatchCamera(patch);
 			}
+
 			for (int i = 1; i < m_isCameraPath.size(); i++)
 			{
 				int pcpid = m_isCameraPath[i - 1];
@@ -668,14 +765,13 @@ void SurfaceInspectionPlanner::Render(IRenderContext * pContext, IEffect * pEffe
 				auto curr = XMLoad(m_isPatches[cpid].m_cameraFrustum.Origin);
 				darwer.DrawLine(prev, curr, DirectX::Colors::Blue);
 			}
-
 			darwer.End();
 		}
 	}
 
 	if (m_pen)
 	{
-		RenderCursor(pContext, pEffect);
+		//RenderCursor(pContext, pEffect);
 	}
 
 	if (g_DebugView && pEffect)
@@ -691,6 +787,25 @@ void SurfaceInspectionPlanner::DrawPatchCamera(InspectionPatch& patch)
 	//DrawGeometryOutline(geo, color);
 	geo = patch.m_cameraFrustum;
 	DrawGeometryOutline(geo, color);
+	geo = patch.BoundingBox;
+	if (g_DebugView)
+	{
+		DrawGeometryOutline(geo, color);
+
+		auto& surface = patch.surface();
+		for (auto& f : patch.m_areaFacets)
+		{
+			int fid = f.first;
+			auto cont = f.second.containment;
+			color = cont == 2 ? Colors::Lime : cont == 1 ? Colors::Purple : Colors::Red;
+			for (int i = 0; i < 3; i++)
+			{
+				auto v0 = get_position(surface.vertex(fid, i));
+				auto v1 = get_position(surface.vertex(fid, (i + 1) % 3));
+				Visualizers::g_PrimitiveDrawer.DrawLine(v0, v1, color);
+			}
+		}
+	}
 }
 
 RenderFlags SurfaceInspectionPlanner::GetRenderFlags() const { return RenderFlags::SpecialEffects; }
@@ -820,7 +935,7 @@ inline D2D1_POINT_2F XM_CALLCONV GetD2DPoint(const Vector2& v)
 
 void SurfaceInspectionPlanner::UpdateDecalGeometry(I2DFactory* pFactory)
 {
-	m_previwPatch.SetUVRect(Vector2(0.5f), m_previwPatch.m_uvExtent);
+	m_previwPatch.SetSurfaceCurveToUVRect(m_previwPatch.m_uvCenter, m_previwPatch.m_uvExtent);
 	m_previwPatch.UpdateGeometry(pFactory);
 	m_previwPatch.UpdateDecalTransformMatrix();
 	m_declDirtyFalg = 1;
@@ -973,11 +1088,28 @@ InspectionPatch::InspectionPatch()
 
 	DecalSize = Vector2(g_DecalResolution);
 	// 1/(physical dimension) * sqrt(2), so that the uv rect scales up and misalign with 45 degree  will still contains in
-	float phydim = 35.0f;
+	float phydim = 50.0f;
 	float minfov = std::fminf(hfov, vfov);
 	ZTolerance = 0.16f; //0.14f
 	m_uvExtent = 1 / (phydim * sqrtf(2)) * m_defaultCameraFrustum.Far * Vector2(minfov, minfov);
 }
+
+//InspectionPatch::InspectionPatch(const InspectionPatch & rhs)
+//{
+//	//m_surface = rhs.m_surface;
+//	//m_uvCurve = rhs.m_uvCurve;
+//	//m_fids = rhs.m_fids;
+//	//CurvtureDistribution = rhs.CurvtureDistribution;
+//	//m_areaFacets = rhs.m_areaFacets;
+//	//m_areaVertices = rhs.m_areaVertices;
+//	//m_averageNormal = rhs.m_averageNormal;
+//	//BoundingBox = rhs.BoundingBox;
+//	//m_cameraFrustum = rhs.m_cameraFrustum;
+//	//cptr<ID2D1Factory> pFactory;
+//	//rhs.m_deaclGeometry->GetFactory(&pFactory);
+//	//UpdateGeometry(pFactory.Get());
+//	//CaculateCameraFrustum();
+//}
 
 bool InspectionPatch::CaculateCameraFrustum()
 {
@@ -985,9 +1117,10 @@ bool InspectionPatch::CaculateCameraFrustum()
 	std::vector<XMVECTOR, XMAllocator> positions;
 	std::vector<XMVECTOR, XMAllocator> normals;
 
-	CaculateVerticsInPatch(positions);
+	// Positions contains vertices & persudo-vertex added in the boundry
+	CaculateVerticsInPatch(m_isInfo.facet, BoundingBox, positions);
 
-	if (m_areVertices.size() == 0)
+	if (positions.size() == 0)
 	{
 		Valiad = false;
 		return false;
@@ -1005,7 +1138,7 @@ bool InspectionPatch::CaculateCameraFrustum()
 	XMVECTOR q = XMLoad(BoundingBox.Orientation);
 	XMVECTOR opticsAxis = XMVector3Rotate(g_XMIdentityR2.v, q);
 
-	bool flipZ = XMVectorGetY(opticsAxis) > .0f;
+	bool flipZ = XMVector3Greater(XMVector3Dot(opticsAxis, m_averageNormal), XMVectorZero());
 	if (flipZ)
 	{
 		opticsAxis = -opticsAxis;
@@ -1019,58 +1152,94 @@ bool InspectionPatch::CaculateCameraFrustum()
 	return Valiad;
 }
 
-void InspectionPatch::CaculateVerticsInPatch(XMVECTOR_ARRAY&positions)
+void InspectionPatch::CaculateVerticsInPatch(int fid, const DirectX::BoundingOrientedBox &patchRange, XMVECTOR_ARRAY&positions)
 {
-	positions.clear();
-	m_areVertices.clear();
+	using namespace DirectX::VertexTraits;
 	XMVECTOR dsize = DecalSize;
 	XMVECTOR ext = m_uvExtent;
-	XMVECTOR uvmin = m_uvCenter - m_uvExtent * 1.2f;
-	XMVECTOR uvmax = m_uvCenter + m_uvExtent * 1.2f;
+	XMVECTOR uvmin = m_uvCenter - m_uvExtent;
+	XMVECTOR uvmax = m_uvCenter + m_uvExtent;
 	auto& vertices = this->m_surface->vertices;
 
-	m_isVertexIn.resize(vertices.size());
-	std::fill(m_isVertexIn.begin(), m_isVertexIn.end(), 0);
-	//ZeroMemory(vertices.data(), vertices.size() * sizeof(int_fast16_t));
-	XMVECTOR avNorm = XMVectorZero();
-	for (int i = 0; i < vertices.size(); i++)
-	{
-		auto& v = vertices[i];
-		XMVECTOR uv = get_uv(v);
-		BOOL inside;
-		// fast rejection
-		inside = XMVector2Greater(uv, uvmin) && XMVector2Less(uv, uvmax);
-		if (inside)
+	positions.clear();
+	m_areaVertices.clear();
+	m_areaFacets.clear();
+	//std::cout << "Testing Facets ";
+	// m_areaFacets.reserve(); C * PatchArea / SurfaceArea * SurfaceTriangleCount
+	m_surface->find_adjacant_facets_of(fid, [this, uvmin, uvmax](tri_idx_t facet_id) -> tri_containment_t {
+		tri_containment_t contains;
+		//std::cout << facet_id << ',';
+
+		auto& surface = *this->m_surface;
+		int count = 0;
+		for (int i = 0; i < 3; i++)
 		{
-			//m_deaclGeometry->FillContainsPoint(GetD2DPoint(uv * dsize), m_decalTransform, &inside);
-			if (inside)
+			auto& v = surface.vertex(facet_id, i);
+			XMVECTOR uv = get_uv(v);
+			int inside = XMVector2Greater(uv, uvmin) && XMVector2Less(uv, uvmax);
+			count += inside;
+			contains.vertex_containments[i] = inside ? DirectX::ContainmentType::CONTAINS : DirectX::ContainmentType::DISJOINT;
+		}
+		contains.containment = count == 0 ? DirectX::ContainmentType::DISJOINT :
+			count == 3 ? DirectX::ContainmentType::CONTAINS :
+			DirectX::ContainmentType::INTERSECTS;
+		return contains;
+	}, m_areaFacets);
+
+	//std::cout << "=============== Testing end =============" << std::endl;
+
+	m_areaVertices.clear();
+	for (auto& fc : m_areaFacets)
+	{
+		int fid = fc.first;
+		auto& vin = fc.second.vertex_containments;
+		for (int i = 0; i < 3; i++)
+			m_areaVertices[surface().indices[fid * 3 + i]] = fc.second.vertex_containments[i];
+
+		if (fc.second.containment == DirectX::ContainmentType::INTERSECTS)
+		{
+			for (int e = 0; e < 3; e++)
 			{
-				m_isVertexIn[i] = 1;
-				m_areVertices.push_back(i);
-				positions.push_back(get_position(v));
-				XMVECTOR norm = get_normal(v);
-				//normals.push_back(norm);
-				avNorm += norm;
+				if (vin[e] ^ vin[(e + 1) % 3])
+				{
+					auto v0 = surface().vertex(fid, e);
+					auto v1 = surface().vertex(fid, (e + 1) % 3);
+					AddCrossEdgeIntersections(v0, v1, positions);
+				}
 			}
 		}
 	}
-	m_averageNormal = avNorm;
 
+	XMVECTOR avNorm = XMVectorZero();
+	for (auto& vc : m_areaVertices)
+	{
+		int vid = vc.first;
+		if (vc.second != DirectX::ContainmentType::DISJOINT)
+		{
+			auto& v = vertices[vid];
+			XMVECTOR norm = get_normal(v);
+			avNorm += norm;
+			positions.push_back(get_position(v));
+		}
+	}
+	m_averageNormal = DirectX::XMVector3Normalize(avNorm);
 }
 
 void InspectionPatch::CaculatePatchCurvetures(XMVECTOR_ARRAY &positions)
 {
 	auto& vertices = m_surface->vertices;
 	m_curvetures.clear();
-	for (auto& facet : m_surface->facets())
+	for (auto& fc : m_areaFacets)
 	{
+		auto& facet = surface().facet(fc.first);
+		auto& is_vertex_in_area = fc.second.vertex_containments;
 		for (int e = 0; e < 3; e++)
 		{
 			int iv0 = facet[e];
 			int iv1 = facet[(e + 1) % 3];
 
-			auto v0_in = m_isVertexIn[iv0];
-			auto v1_in = m_isVertexIn[iv1];
+			auto v0_in = is_vertex_in_area[e];
+			auto v1_in = is_vertex_in_area[(e + 1) % 3];
 			if (v0_in || v1_in)
 			{
 				auto v0 = vertices[iv0];
@@ -1078,12 +1247,6 @@ void InspectionPatch::CaculatePatchCurvetures(XMVECTOR_ARRAY &positions)
 
 				XMVECTOR ip = GetEdgeCurveture(v0, v1);
 				m_curvetures.emplace_back(ip);
-
-				if (v0_in ^ v1_in) // crossing edge
-				{
-					AddCrossEdgeIntersections(v0, v1, positions);
-				}
-
 			}
 		}
 	}
@@ -1093,19 +1256,20 @@ void InspectionPatch::AddCrossEdgeIntersections(const DirectX::VertexPositionNor
 {
 	XMVECTOR uv0 = get_uv(v0);
 	XMVECTOR uv1 = get_uv(v1);
-	uv1 = uv1 - uv0;
 	XMVECTOR b1;
 	XMVECTOR e1 = m_uvCurve[0];
-	for (int i = 0; i < m_uvCurve.size(); i++)
+	XMVECTOR uvi;
+	for (int i = 1; i < m_uvCurve.size(); i++)
 	{
 		b1 = e1;
 		e1 = m_uvCurve[i];
-		XMVECTOR t = DirectX::LineSegmentTest::RayIntersects2D(uv0, uv1, b1, e1);
-		if (!DirectX::XMVector4IsNaN(t) && XMVector4Less(t, g_XMOne.v))
+
+		XMVECTOR t = DirectX::LineSegmentTest::RayIntersects2D(uv0, uv1 - uv0, b1, e1);
+		if (!DirectX::XMVector4IsNaN(t) && DirectX::XMVector4Less(t, g_XMOne.v))
 		{
 			//add a new persudo vertex in
-			t /= XMVector2Length(uv1);
-			t = XMVectorLerpV(get_position(v0), get_position(v1), t);
+			uvi = DirectX::XMVectorLerpV(uv0, uv1, t);
+			t = DirectX::XMVectorLerpV(get_position(v0), get_position(v1), t);
 			positions.push_back(t);
 		}
 	}
@@ -1204,7 +1368,7 @@ void XM_CALLCONV InspectionPatch::CaculatePrinciplePatchOrientation()
 
 	std::vector<Vector2> cuv_phi; cuv_phi.reserve((m_curvetures.size()));
 	for (auto& c : m_curvetures)
-		cuv_phi.emplace_back(proj(c), XMVectorGetX(XMVector3Length(c))*c.w);
+		cuv_phi.emplace_back(proj(c), /*XMVectorGetX(XMVector3Length(c))**/c.w);
 
 	// angle resolution of our minimumlizer
 	// since this function is __NOT__ CONVEX at all, use search to do this
@@ -1243,23 +1407,35 @@ void XM_CALLCONV InspectionPatch::CaculatePrinciplePatchOrientation()
 	(Quaternion&)BoundingBox.Orientation = XMQuaternionMultiply(XMQuaternionRotationRoll(m_principleUvRotation), orientation);
 }
 
-void XM_CALLCONV InspectionPatch::SetUVRect(FXMVECTOR uvc, FXMVECTOR uvext)
+void XM_CALLCONV InspectionPatch::SetSurfaceCurveToUVRect(FXMVECTOR uvc, FXMVECTOR uvext)
 {
-	m_uvCurve.clear();
 	m_uvCenter = uvc;
 	m_uvExtent = uvext;
 	m_uvRotation = .0f;
 
-	XMVECTOR onx = g_XMOne.v;
-	XMVECTOR flx = g_XMNegateY.v;
-
-	m_uvCurve.push_back(-onx); // (-1,-1)
-	m_uvCurve.push_back(+flx); // ( 1,-1)
-	m_uvCurve.push_back(+onx); // ( 1, 1)
-	m_uvCurve.push_back(-flx); // (-1, 1)
-
 	UpdateDecalTransformMatrix();
+
+	XMVECTOR onx = uvext;
+	XMVECTOR flx = g_XMNegateY.v * uvext;
+
+	m_uvCurve.clear();
+	m_uvCurve.push_back(uvc - onx, true); // (-1,-1)
+	m_uvCurve.push_back(uvc + flx, true); // ( 1,-1)
+	m_uvCurve.push_back(uvc + onx, true); // ( 1, 1)
+	m_uvCurve.push_back(uvc - flx, true); // (-1, 1)
+	m_uvCurve.closeLoop();
 	m_dirty = 3;
+}
+
+inline float2 XM_CALLCONV uv2xy(float2 uv)
+{
+	// [0,1;0,1] -> [0,2;-2,0] -> [-1,1;-1;1]
+	return uv * float2(2, -2) + float2(-1, 1);
+}
+
+inline float2 XM_CALLCONV xy2uv(float2 xy)
+{
+	return (xy + float2(1, 1)) * float2(0.5f, -0.5f);
 }
 
 void InspectionPatch::UpdateGeometry(I2DFactory* pFactory, bool smooth)
@@ -1275,24 +1451,25 @@ void InspectionPatch::UpdateGeometry(I2DFactory* pFactory, bool smooth)
 	ThrowIfFailed(m_deaclGeometry->Open(&pSink));
 	pSink->SetFillMode(D2D1_FILL_MODE_WINDING);
 
+	float2 scl = load(DecalSize);
+
 	int n = smooth ? smoothed.size() : points.size();
+	n -= !smooth; // anchors are more sized
 	vector<D2D1_POINT_2F> dpoints(n);
 
-	if (smooth)
+	for (int i = 0; i < n; i++)
 	{
-		for (int i = 0; i < n; i++)
-		{
-			Vector2 p(smoothed[i].x, smoothed[i].y);
-			dpoints[i] = GetD2DPoint(p);
-		}
-	}
-	else
-	{
-		for (int i = 0; i < n; i++)
-		{
-			Vector2 p(points[i].x, points[i].y);
-			dpoints[i] = GetD2DPoint(p);
-		}
+		float2 v;
+		//if (smooth)
+		//	v = load(smoothed[i]).xy();
+		//else
+		v = load(points[i]).xy();
+
+		//std::cout << v << "=>";
+		v = v * scl;
+		//std::cout << v << std::endl;
+
+		dpoints[i] << v;
 	}
 
 	pSink->BeginFigure(
@@ -1311,11 +1488,19 @@ void InspectionPatch::UpdateGeometry(I2DFactory* pFactory, bool smooth)
 	pSink->SetFillMode(D2D1_FILL_MODE_WINDING);
 	vector<D2D1_POINT_2F> chisto(CurvtureAngluarResolution * 2);
 
+	const float figureRadius = 0.25f;
+	const float2 figureCenter = { 0,75,0.75 };
 	for (int i = 0; i < CurvtureAngluarResolution * 2; i++)
 	{
 		float a = i* XM_PI / CurvtureAngluarResolution;
-		float m = 0.25f * CurvtureDistribution[i % CurvtureAngluarResolution];
-		chisto[i] = D2D_POINT_2F{0.75f + XMScalarCosEst(a)*m, 0.75f + XMScalarSinEst(a)*m };
+		float m = figureRadius * CurvtureDistribution[i % CurvtureAngluarResolution];
+		float sina, cosa;
+		XMScalarSinCosEst(&sina, &cosa, a);
+		float2 v = { cosa, sina };
+		v = v * m + figureCenter;
+		v = v * m_uvExtent + m_uvCenter;
+		v *= scl;
+		chisto[i] << v;
 	}
 	pSink->BeginFigure(
 		chisto[0],
@@ -1334,25 +1519,25 @@ void InspectionPatch::DrawDecal(I2DContext * pContext, ID2D1SolidColorBrush * pB
 {
 	Color color = Colors::Red.v;
 	if (Valiad)
-		color = Colors::LimeGreen.v;
+		color = Colors::Lime.v;
 	color.w = m_opticity;
 
 	UpdateDecalTransformMatrix();
 
 	// S
-	auto trans = m_decalTransform * D2D1::Matrix3x2F::Scale(DecalSize.x, DecalSize.y);
-
+	auto trans = D2D1::Matrix3x2F::Identity();
 	pContext->SetTransform(trans);
 
 	pBrush->SetColor(GetD2DColor(color));
 	pContext->FillGeometry(m_deaclGeometry.Get(), pBrush);
 
-	//color = Colors::Black.v;
-	//pBrush->SetColor(GetD2DColor(color));
-	//pContext->DrawGeometry(m_curvHistoGeometry.Get(), pBrush, 2.0f / DecalSize.Length());
+	color = Colors::Black.v;
+	pBrush->SetColor(GetD2DColor(color));
+	pContext->DrawGeometry(m_curvHistoGeometry.Get(), pBrush, 2.0f / DecalSize.Length());
 	color = Colors::White.v;
 	pBrush->SetColor(GetD2DColor(color));
-	pContext->FillGeometry(m_curvHistoGeometry.Get(), pBrush);
+	if (m_curvHistoGeometry)
+		pContext->FillGeometry(m_curvHistoGeometry.Get(), pBrush);
 }
 
 void InspectionPatch::UpdateDecalTransformMatrix()

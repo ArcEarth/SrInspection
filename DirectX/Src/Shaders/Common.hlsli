@@ -1,11 +1,11 @@
-float2 PositionToUV(float4 posProj)
+inline float2 PositionToUV(float4 posProj)
 {
 	float2 uv = (posProj / posProj.w).xy;
 	uv = float2(0.5f, -0.5f) * uv + 0.5f; // Projection space to UV space transform
 	return uv;
 }
 
-float4 GetLightUV(float4 posWorld, float4x4 viewProjection)
+inline float4 GetLightUV(float4 posWorld, float4x4 viewProjection)
 {
 	float4 luv = mul(posWorld, viewProjection);
 	//luv = luv / luv.w; // Normalize homogenous coords
@@ -38,7 +38,7 @@ float4 GetLightUV(float4 posWorld, float4x4 viewProjection)
 #define SetPositionNormalToEye \
 	SetPosition; \
 	vout.normal = mul(vin.Normal, (float3x3)World); \
-	vout.toEye = posWorld.xyz - EyePosition;
+	vout.pos_ws = posWorld.xyz;
 
 #define SetPositionNormalToEyeTangentBinormal \
 	SetPositionNormalToEye; \

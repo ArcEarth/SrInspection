@@ -183,6 +183,7 @@ namespace DirectX
 			Color GetAmbientColor() const;
 			Color GetDiffuseColor() const;
 			Color GetSpecularColor() const;
+			float GetSpecularPower() const;
 			float GetAlpha() const;
 			bool  GetUseAlphaDiscard() const;
 			ID3D11ShaderResourceView * GetDiffuseMap() const;

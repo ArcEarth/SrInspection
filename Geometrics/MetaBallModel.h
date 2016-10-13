@@ -11,7 +11,7 @@
 #include <vector>
 #include <array>
 #include "BezierClip.h"
-#include "KdBVH.h"
+#include "bvh.h"
 
 #ifdef LAPLACIAN_INTERFACE
 #include <Eigen\Dense>
@@ -183,8 +183,6 @@ namespace Geometrics{
 		inline void push_back(const Metaball &element) { Primitives.push_back(element); }
 		inline std::vector<Metaball>::iterator begin() { return Primitives.begin(); }
 		inline std::vector<Metaball>::iterator end() { return Primitives.end(); }
-		inline std::vector<Metaball>::const_iterator cbegin() const { return Primitives.cbegin(); }
-		inline std::vector<Metaball>::const_iterator cend() const { return Primitives.cend(); }
 		inline Metaball& back() {return Primitives.back(); }
 #pragma endregion
 
@@ -225,7 +223,7 @@ namespace Geometrics{
 		float EffictiveRadiusRatio() const { return m_EffectiveRatio; };
 
 	public:
-		typedef KdAabbTree<float, 3, Metaball> AcceleratedContainer;
+		typedef kd_bvh<Metaball, float, 3> AcceleratedContainer;
 
 		AcceleratedContainer		Primitives;
 

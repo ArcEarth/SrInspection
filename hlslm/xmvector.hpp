@@ -56,6 +56,7 @@ namespace DirectX
 			using scalar_type = _T;
 			typedef xmvector SelfType;
 			using intrinsic_vector = detail::get_intrinsic_vector_t<_T, _Size>;
+			using storage_impl = detail::storage_helper<Scalar, false, _Size, 1>;
 
 			static_assert(Size > 0 && sizeof(Scalar) * Size <= 16, "Instantiate xmvector of dimension 0 or greater than 4.");
 
@@ -66,6 +67,10 @@ namespace DirectX
 			inline explicit xmvector(Scalar s) {
 				v = detail::replicate_scalar(s);
 			}
+			
+			inline explicit xmvector(const Scalar* pVector) {
+				storage_impl::load(pVector);
+			}
 
 			inline xmvector(Scalar _x, Scalar _y, Scalar _z = Scalar(0), Scalar _w = Scalar(0)) {
 				v = detail::set_vector(_x, _y, _z, _w);
@@ -73,7 +78,7 @@ namespace DirectX
 
 			this_type& operator= (const this_type& rhs) { this->v = rhs.v; return *this; }
 
-			inline operator XMVECTOR () const
+			inline explicit operator XMVECTOR () const
 			{
 				return v;
 			}
@@ -166,6 +171,10 @@ namespace DirectX
 			{ this->v = vector_math::multiply<scalar_type, size>::invoke(this->v, rhs.v); return *this; }
 			inline this_type& XM_CALLCONV operator /= (const this_type rhs)
 			{ this->v = vector_math::divide<scalar_type, size>::invoke(this->v, rhs.v); return *this; }
+			inline this_type& XM_CALLCONV operator *= (const Scalar rhs)
+			{ *this *= this_type(rhs); return *this; }
+			inline this_type& XM_CALLCONV operator /= (const Scalar rhs)
+			{ *this /= this_type(rhs); return *this; }
 
 			inline this_type XM_CALLCONV operator + (const this_type rhs) const
 			{ this_type ret; ret.v = vector_math::add<scalar_type, size>::invoke(this->v, rhs.v); return ret; }
@@ -175,7 +184,10 @@ namespace DirectX
 			{ this_type ret; ret.v = vector_math::multiply<scalar_type, size>::invoke(this->v, rhs.v); return ret; }
 			inline this_type XM_CALLCONV operator / (const this_type rhs) const
 			{ this_type ret; ret.v = vector_math::divide<scalar_type, size>::invoke(this->v, rhs.v); return ret; }
-
+			inline this_type XM_CALLCONV operator * (const Scalar rhs) const
+			{ return (*this) * this_type(rhs); }
+			inline this_type XM_CALLCONV operator / (const Scalar rhs) const
+			{ return (*this) / this_type(rhs); }
 
 #if defined(_XM_VECTOR_USE_LOAD_STORE_HELPER_)
 
@@ -187,7 +199,7 @@ namespace DirectX
 			inline enable_if_loadable<_Ty> operator=(const _Ty& memory_vector)
 			{
 				using traits = traits::memery_vector_traits<_Ty>;
-				using load_imple = detail::storage_helper<typename traits::scalar, is_aligned<_Ty>::value, Size>;
+				using load_imple = detail::storage_helper<typename traits::scalar, ::hlsl::traits::is_aligned<_Ty>::value, Size>;
 				this->v = load_imple::load(reinterpret_cast<const typename traits::scalar*>(&memory_vector));
 			}
 
@@ -200,7 +212,7 @@ namespace DirectX
 			inline typename traits::enable_memery_traits_t<_Ty>::void_type XM_CALLCONV store(_Ty& storage) const
 			{
 				using traits = traits::memery_vector_traits<_Ty>;
-				using load_imple = detail::storage_helper<typename traits::scalar, is_aligned<_Ty>::value, traits::cols, traits::rows>;
+				using load_imple = detail::storage_helper<typename traits::scalar, ::hlsl::traits::is_aligned<_Ty>::value, traits::cols, traits::rows>;
 				load_imple::store(reinterpret_cast<typename traits::scalar*>(&storage), this->v);
 			}
 
@@ -229,6 +241,10 @@ namespace DirectX
 			// x86 Debug mode crush by these type of implicit constructor
 			inline XM_VECTOR_LOAD_CTOR xmscalar(Scalar s) {
 				this->v = detail::replicate_scalar(s);
+			}
+
+			inline xmscalar(base_type s){
+				this->v = detail::splat<0>(s.v);
 			}
 
 			inline explicit xmscalar(CXMVECTOR xmv) {
@@ -450,12 +466,12 @@ namespace DirectX
 
 			template <>
 			struct storage_helper <uint, false, 4> {
-				static XMVECTOR XM_CALLCONV load(const uint* pSource) { XMLoadInt4(pSource); }
+				static XMVECTOR XM_CALLCONV load(const uint* pSource) { return XMLoadInt4(pSource); }
 				static void XM_CALLCONV store(uint* pDst, FXMVECTOR xmv) { XMStoreInt4(pDst, xmv); }
 			};
 			template <>
 			struct storage_helper <uint, true, 2> {
-				static XMVECTOR XM_CALLCONV load(const uint* pSource) {XMLoadInt2A(pSource); }
+				static XMVECTOR XM_CALLCONV load(const uint* pSource) { return XMLoadInt2A(pSource); }
 				static void XM_CALLCONV store(uint* pDst, FXMVECTOR xmv) { XMStoreInt2A(pDst, xmv); }
 			};
 

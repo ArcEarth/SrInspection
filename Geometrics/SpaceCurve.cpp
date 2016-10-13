@@ -114,33 +114,37 @@ float SpaceCurve::length() const
 bool XM_CALLCONV SpaceCurve::push_back(FXMVECTOR vtr, bool force)
 {
 	float len = .0f;
+	XMVECTOR vlen, btr, v ;
+	v = XMVectorSetW(vtr, .0f);
+
 	if (m_anchors.empty()) {
 		m_anchors.emplace_back();
-		XMStoreA(m_anchors.back(), vtr);
-		m_anchors.back().w = .0f;
+		XMStoreA(m_anchors.back(), v);
 	}
 	else
 	{
-		XMVECTOR btr = XMLoadA(m_anchors[size() - 1]);
-		len = XMVectorGetW(btr + XMVector3Length(vtr - btr));
+		btr = XMLoadA(m_anchors[size() - 1]);
+		vlen = _DXMEXT XMVector3Length(v - btr);
+		len = XMVectorGetW(vlen);
 
 		// ingnore duplicated anchors
-		if (!force && abs(len - m_anchors.back().w) < XM_EPSILON * 8)
+		if (!force && abs(len) < XM_EPSILON * 8)
 			return false;
 
-		if (!m_isClose)
-			m_anchors.emplace_back();
+		if (!m_isClose) m_anchors.emplace_back();
 
-		XMStoreA(m_anchors.back(), vtr);
-		m_anchors.back().w = len;
+		v = _DXMEXT XMVectorSelect<0,0,0,1>(v, vlen + btr);
+		XMStoreA(m_anchors.back(), v);
 	}
 
 	if (m_isClose)
 	{
+		btr = v;
+		m_anchors.emplace_back();
 		XMVECTOR v = XMLoadA(m_anchors[0]);
-		len = len + XMVectorGetW(XMVector3Length(v - vtr));
+		vlen = _DXMEXT XMVector3Length(v - btr);
+		v = _DXMEXT XMVectorSelect<0, 0, 0, 1>(v, vlen + btr);
 		XMStoreA(m_anchors.back(), v);
-		m_anchors.back().w = len;
 	}
 	return true;
 }
