@@ -322,7 +322,7 @@ void SurfaceInspectionPlanner::ExtractWorkloadMesh(const IModelNode* pModel)
 	{
 		auto p = get_position(v) + t;
 		p = XMVector3Rotate(p, q);
-		p = XMVectorAndInt(p, g_XMMaskXY.v);
+		p = XMVectorAndInt(p, XMVECTORU32 { 0xFFFFFFFF, 0xFFFFFFFF, 0x00000000, 0x00000000 }.v);
 		p = XMVectorMultiplyAdd(p, uvmax, uvmin);
 		set_uv(v, p);
 	}
