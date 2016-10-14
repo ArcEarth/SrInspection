@@ -11,6 +11,8 @@
 #include "Pointer.h"
 #include "Keyboard.h"
 #include "TrackerdPen.h"
+#include <fstream>
+#include <filesystem>
 
 _HLSL_REGISTER_VECTOR_TYPE_(DirectX::Vector2, float, 1, 2);
 _HLSL_REGISTER_VECTOR_TYPE_(DirectX::Vector3, float, 1, 3);
@@ -102,6 +104,8 @@ void SurfaceInspectionPlanner::Parse(const ParamArchive * archive)
 	GetParam(archive, "z_tolerence", z_tolerence);
 	GetParam(archive, "active_fill_color", m_decalFill);
 	GetParam(archive, "stroke_color", m_decalStroke);
+	//GetParam(archive, "camera_hfov", );
+	GetParam(archive, "projector_displacement", m_projectorDisplacement);
 
 	//GetParamArray(archive, "control_points", cps);
 
@@ -467,6 +471,60 @@ void SurfaceInspectionPlanner::CaculateCameraPath()
 	search_recur(1, .0f);
 }
 
+void PrintVector3PBRT(std::ostream& os, DirectX::FXMVECTOR q)
+{
+	Vector3 saxis = q;
+	os << saxis.x << ' ' << saxis.y << ' ' << saxis.z;
+}
+
+void PrintRotationPBRT(std::ostream& os, DirectX::FXMVECTOR q)
+{
+	float angle; XMVECTOR axis;
+	XMQuaternionToAxisAngle(&axis, &angle, q);
+	os << XMConvertToDegrees(angle) << ' ';
+	PrintVector3PBRT(os, axis);
+}
+
+namespace pbrt
+{
+	std::ostream& operator <<(std::ostream& os, DirectX::Vector3 v)
+	{
+		PrintVector3PBRT(os, v); return os;
+	}
+	std::ostream& operator <<(std::ostream& os, DirectX::Quaternion q)
+	{
+		PrintRotationPBRT(os, q); return os;
+	}
+}
+
+void SurfaceInspectionPlanner::PrintPlan(std::ostream & os) const
+{
+	using namespace std;
+	os << "#Inspection Plan:" << m_workloadObj->Name << endl;
+	os << endl;
+	os << "#Model world transform:" << endl;
+	os << "Translate ";
+	PrintVector3PBRT(os, m_workloadObj->GetPosition());
+	os << endl << "Rotate ";
+	PrintRotationPBRT(os, m_workloadObj->GetOrientation());
+	os << endl << "Scale ";
+	PrintVector3PBRT(os, m_workloadObj->GetScale());
+	os << endl;
+	os << "#Camera Focus: " << 8.0f << endl;
+	int n = m_isPatches.size();
+	for (int i = 0; i < n; i++)
+	{
+		auto& patch = m_isPatches[m_isCameraPath[i]];
+		auto& frustum = patch.m_cameraFrustum;
+		os << "#Camera " << i << endl;
+		os << "Translate ";
+		PrintVector3PBRT(os, Vector3(frustum.Origin));
+		os << endl << "Rotate ";
+		PrintRotationPBRT(os, Quaternion(frustum.Orientation));
+		os << endl;
+	}
+}
+
 SurfaceInspectionPlanner::SurfaceInspectionPlanner()
 {
 	static const size_t g_MaxPatchCount = 64;
@@ -490,6 +548,18 @@ SurfaceInspectionPlanner::SurfaceInspectionPlanner()
 			auto its = this->m_isInfo;
 			auto v = this->m_mesh.persudo_vertex(its.facet, its.barycentric);
 			this->AddInspectionPatch(get_uv(v), its.facet);
+		}
+		if (arg.Key == 'P')
+		{
+			namespace sys = std::tr2::sys;
+			std::string fileName = this->m_workloadObj->Name + ".txt";
+			auto path = sys::current_path() / fileName;
+			std::cout << "Printing Inspection Plan >> " << path.string() << std::endl;
+			this->PrintPlan(std::cout);
+			std::ofstream planfile(path);
+			this->PrintPlan(planfile);
+			planfile.close();
+			std::cout << "Printing finished" << std::endl;
 		}
 	};
 }

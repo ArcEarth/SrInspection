@@ -148,6 +148,7 @@ namespace Causality
 			InspectionPatch* AddInspectionPatch(FXMVECTOR uv, int fid);
 			void CaculateCameraPath();
 			void RemovePatch(InspectionPatch* patch);
+			void PrintPlan(std::ostream& os) const;
 
 			void SurfaceSketchBegin();
 			void SrufaceSketchUpdate(XMVECTOR pos, XMVECTOR dir);
@@ -177,6 +178,7 @@ namespace Causality
 			int								m_declDirtyFalg;
 			int								m_requestCancelLoading;
 
+			Vector3							m_projectorDisplacement;
 			BoundingFrustum					m_cameraFrustum;
 			Matrix4x4						m_cameraProjection;
 			float							m_cameraFocus;
