@@ -610,6 +610,8 @@ void SurfaceInspectionPlanner::GenerateScript() const
 			excute_bat << "@call pbrt_tiff.bat " << buffer << std::endl;
 		}
 	}
+	excute_bat << "@mkdir image" << std::endl;
+	excute_bat << "@move " << workload_root <<"\\*.tiff "<< workload_root <<"\\image" << std::endl;
 	excute_bat.close();
 }
 
