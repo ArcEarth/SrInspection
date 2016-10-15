@@ -1,0 +1,36 @@
+Film "image"
+	"integer xresolution" [200] "integer yresolution" [200] 
+LookAt  {Eye}   {Focus}     {Up}
+Camera "perspective" "float fov" [28.072]
+
+Sampler "bestcandidate" "integer pixelsamples" 60
+
+WorldBegin
+
+#Amibient light, noise light source
+AttributeBegin
+    CoordSysTransform "camera"
+    LightSource "point" "color I" [ .09 .09 .09 ] "point from" [0 0 0]    
+AttributeEnd
+
+#Projector
+AttributeBegin
+    CoordSysTransform "camera"
+    Translate  -0.5  0  0
+    LightSource "projection" "float fov" [53.1301] "color I" [100 100 100] 
+	"string mapname" ["../ProjectorPatterns/pattern_s{ProjectPattern}.exr"]
+AttributeEnd
+
+# Dart
+Include "{DartSpecificationPbrtFileName}"
+
+# Workload
+AttributeBegin
+    Material "metal"  "float roughness" [.2]
+        "spectrum eta" "../spds/metals/Ag.eta.spd"
+        "spectrum k" "../spds/metals/Ag.k.spd"
+    #Material "metal"  "float roughness" [.2]
+    Include "{WorkloadMeshPbrtFileName}"
+AttributeEnd
+
+WorldEnd

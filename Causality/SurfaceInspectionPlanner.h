@@ -149,6 +149,7 @@ namespace Causality
 			void CaculateCameraPath();
 			void RemovePatch(InspectionPatch* patch);
 			void PrintPlan(std::ostream& os) const;
+			void GenerateScript() const;
 
 			void SurfaceSketchBegin();
 			void SrufaceSketchUpdate(XMVECTOR pos, XMVECTOR dir);

@@ -326,7 +326,7 @@ void SurfaceInspectionPlanner::ExtractWorkloadMesh(const IModelNode* pModel)
 	{
 		auto p = get_position(v) + t;
 		p = XMVector3Rotate(p, q);
-		p = XMVectorAndInt(p, XMVECTORU32 { 0xFFFFFFFF, 0xFFFFFFFF, 0x00000000, 0x00000000 }.v);
+		p = XMVectorAndInt(p, XMVECTORU32{ 0xFFFFFFFF, 0xFFFFFFFF, 0x00000000, 0x00000000 }.v);
 		p = XMVectorMultiplyAdd(p, uvmax, uvmin);
 		set_uv(v, p);
 	}
@@ -525,6 +525,94 @@ void SurfaceInspectionPlanner::PrintPlan(std::ostream & os) const
 	}
 }
 
+int str_replace_first(string& source, const string& partten, const string& rep)
+{
+	size_t index = 0;
+	/* Locate the substring to replace. */
+	index = source.find(partten, index);
+	if (index == std::string::npos) return index;
+
+	/* Make the replacement. */
+	source.replace(index, partten.size(), rep);
+
+	return index;
+}
+
+void SurfaceInspectionPlanner::GenerateScript() const
+{
+	namespace sys = std::experimental::filesystem;
+	auto sctipts_root = sys::current_path().parent_path() / "Assets" / "Scripts";
+	std::ifstream fctemp(sctipts_root / "shot.pbrt.template");
+	std::string shoot_template((std::istreambuf_iterator<char>(fctemp)), std::istreambuf_iterator<char>());
+	std::ifstream fdtemp(sctipts_root / "dart.pbrt.template");
+	std::string dart_template((std::istreambuf_iterator<char>(fdtemp)), std::istreambuf_iterator<char>());
+	fctemp.close(); fdtemp.close();
+
+	string wkName = m_workloadObj->RenderModel()->Name();
+	auto workload_root = sctipts_root / ("plan_" + wkName);
+	auto pbrtbin = sys::current_path().parent_path() / "pbrt";
+	auto meshobj = sys::current_path().parent_path() / "Assets" / "Meshes" / (wkName + ".obj");
+
+	if (sys::exists(wkName) && !sys::is_directory(wkName))
+		sys::remove(wkName);
+	if (!sys::exists(wkName))
+		sys::create_directory(workload_root);
+
+	std::ofstream dark_specification_file(workload_root / "dart.pbrt");
+	// To-do add darts
+	dark_specification_file.close();
+
+	str_replace_first(shoot_template, "{WorkloadMeshPbrtFileName}", wkName + ".pbrt");
+	str_replace_first(shoot_template, "{DartSpecificationPbrtFileName}", "dart.pbrt");
+
+	std::ofstream excute_bat(workload_root / "excute.bat");
+	excute_bat << "@set PATH=%PATH%;" << pbrtbin << std::endl;
+	excute_bat << "@obj2pbrt.exe " << meshobj << ' ' << (workload_root/(wkName + ".pbrt")) << std::endl;
+	int n = m_isPatches.size();
+	char buffer[256];
+	for (int i = 0; i < n; i++)
+	{
+		string ctemp = shoot_template;
+		auto& patch = m_isPatches[m_isCameraPath[i]];
+		auto& frustum = patch.m_cameraFrustum;
+		int printed = sprintf_s(buffer, "%f %f %f", frustum.Origin.x, frustum.Origin.y, frustum.Origin.z);
+		buffer[printed] = 0;
+		str_replace_first(ctemp, "{Eye}", buffer);
+
+		Vector3 focus = { 0,0,m_cameraFrustum.Far };
+		focus = XMVector3Rotate(focus, XMLoad(frustum.Orientation));
+		focus += frustum.Origin;
+		printed = sprintf_s(buffer, "%f %f %f", focus.x, focus.y, focus.z);
+		buffer[printed] = 0;
+		str_replace_first(ctemp, "{Focus}", buffer);
+
+		Vector3 up = { 0,1,0 };
+		up = XMVector3Rotate(up, XMLoad(frustum.Orientation));
+		printed = sprintf_s(buffer, "%f %f %f", up.x, up.y, up.z);
+		buffer[printed] = 0;
+		str_replace_first(ctemp, "{Up}", buffer);
+
+		for (int lp = 0; lp < 4; lp++)
+		{
+			string cstemp = ctemp;
+			printed = sprintf_s(buffer, "%d", lp);
+			buffer[printed] = 0;
+			str_replace_first(cstemp, "{ProjectPattern}", buffer);
+
+			printed = sprintf_s(buffer, "camera_%d_pattern_%d.pbrt", i, lp);
+			buffer[printed] = 0;
+
+			std::ofstream shoot_file(workload_root / buffer);
+			shoot_file << cstemp;
+			shoot_file.close();
+
+			excute_bat << "@echo \">>>>>>>>>>>>> Rendering Image " << buffer << " >>>>>>>>>>>>>\"" << std::endl;
+			excute_bat << "@call pbrt_tiff.bat " << buffer << std::endl;
+		}
+	}
+	excute_bat.close();
+}
+
 SurfaceInspectionPlanner::SurfaceInspectionPlanner()
 {
 	static const size_t g_MaxPatchCount = 64;
@@ -559,6 +647,7 @@ SurfaceInspectionPlanner::SurfaceInspectionPlanner()
 			std::ofstream planfile(path);
 			this->PrintPlan(planfile);
 			planfile.close();
+			GenerateScript();
 			std::cout << "Printing finished" << std::endl;
 		}
 	};
@@ -603,7 +692,7 @@ void SurfaceInspectionPlanner::SetWorkload(VisualObject * pVO)
 	auto pModel = pVO ? pVO->RenderModel() : nullptr;
 	if (!pModel)
 	{
-		MessageBoxA(nullptr, "Workload file dose not exist", "Failed to load file",0);
+		MessageBoxA(nullptr, "Workload file dose not exist", "Failed to load file", 0);
 		std::terminate();
 	}
 

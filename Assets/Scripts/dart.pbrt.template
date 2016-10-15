@@ -1,0 +1,8 @@
+AttributeBegin
+    Translate  {DartPosition}
+    Material "metal"  "float roughness" [.2]
+        "spectrum eta" "spds/metals/Ag.eta.spd"
+        "spectrum k" "spds/metals/Ag.k.spd"
+    #Material "metal"  "float roughness" [.2]
+    Shape "sphere" "float radius" [{DartRadius}]
+AttributeEnd
