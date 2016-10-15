@@ -553,10 +553,9 @@ void SurfaceInspectionPlanner::GenerateScript() const
 	auto pbrtbin = sys::current_path().parent_path() / "pbrt";
 	auto meshobj = sys::current_path().parent_path() / "Assets" / "Meshes" / (wkName + ".obj");
 
-	if (sys::exists(wkName) && !sys::is_directory(wkName))
-		sys::remove(wkName);
-	if (!sys::exists(wkName))
-		sys::create_directory(workload_root);
+	if (sys::exists(wkName))
+		sys::remove_all(wkName);
+	sys::create_directory(workload_root);
 
 	std::ofstream dark_specification_file(workload_root / "dart.pbrt");
 	// To-do add darts
