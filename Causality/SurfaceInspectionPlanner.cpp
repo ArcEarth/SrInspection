@@ -612,6 +612,8 @@ void SurfaceInspectionPlanner::GenerateScript() const
 	excute_bat << "@mkdir image" << std::endl;
 	excute_bat << "@move " << workload_root <<"\\*.tiff "<< workload_root <<"\\image" << std::endl;
 	excute_bat.close();
+
+	system(("explorer " + workload_root.string()).c_str());
 }
 
 SurfaceInspectionPlanner::SurfaceInspectionPlanner()
