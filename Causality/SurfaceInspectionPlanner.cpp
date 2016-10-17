@@ -614,6 +614,7 @@ void SurfaceInspectionPlanner::GenerateScript() const
 	excute_bat.close();
 
 	system(("explorer " + workload_root.string()).c_str());
+	//system((workload_root / "excute.bat").string().c_str());
 }
 
 SurfaceInspectionPlanner::SurfaceInspectionPlanner()
