@@ -166,6 +166,32 @@ namespace DirectX
 			return ret;
 		}
 
+		namespace detail
+		{
+			template <typename _Ty, size_t _Size>
+			inline int XM_CALLCONV move_mask(const xmvector<_Ty, _Size> lhs)
+			{
+#ifdef _XM_SSE_INTRINSICS_
+				return _mm_movemask_ps(lhs.v);
+#endif // _XM_SSE_INTRINSICS_
+			}
+		}
+
+		template <size_t _Size>
+		inline bool XM_CALLCONV all_true(const xmvector<uint, _Size> lhs)
+		{
+			int bitmask = (1 << _Size) - 1;
+			return (detail::move_mask(lhs) & bitmask) == bitmask;
+		}
+
+		template <size_t _Size>
+		inline bool XM_CALLCONV any_true(const xmvector<uint, _Size> lhs)
+		{
+			int bitmask = (1 << _Size) - 1;
+			return (detail::move_mask(lhs) & bitmask) != 0;
+		}
+
+
 		// Bitwise operators for uint vectors
 		// lhs & ~rhs
 		XM_MAKE_BINARY_CWISE_OPERATOR(uint, andnot, XMVectorAndCInt, XM_NAMES)

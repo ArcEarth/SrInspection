@@ -16,44 +16,44 @@ namespace DirectX {
 			Overlap = 3,
 		};
 
-		// https://rootllama.wordpress.com/2014/06/20/ray-line-segment-intersection-test-in-2d/
-		// Returns QNaN if intersection is not valiad
-		// Otherwise returns the (persudo) distance t, always satisfy Origin + t*Dir = intersection point  
-		inline XMVECTOR XM_CALLCONV RayIntersects2D(FXMVECTOR Origin, FXMVECTOR Dir, FXMVECTOR A0, GXMVECTOR A1)
-		{
-			XMVECTOR v1 = Origin - A0;
-			XMVECTOR v2 = A1 - A0;
-			XMVECTOR v3 = XMVectorSwizzle<1, 0, 2, 3>(Dir) * g_XMNegateX.v;
+		//// https://rootllama.wordpress.com/2014/06/20/ray-line-segment-intersection-test-in-2d/
+		//// Returns QNaN if intersection is not valiad
+		//// Otherwise returns the (persudo) distance t, always satisfy Origin + t*Dir = intersection point  
+		//inline XMVECTOR XM_CALLCONV RayIntersects2D(FXMVECTOR Origin, FXMVECTOR Dir, FXMVECTOR A0, GXMVECTOR A1)
+		//{
+		//	XMVECTOR v1 = Origin - A0;
+		//	XMVECTOR v2 = A1 - A0;
+		//	XMVECTOR v3 = XMVectorSwizzle<1, 0, 2, 3>(Dir) * g_XMNegateX.v;
 
-			XMVECTOR D = XMVectorReciprocal(XMVector2Dot(v2, v3));
-			XMVECTOR t1 = XMVector2Cross(v2, v1);
-			XMVECTOR t2 = XMVector2Dot(v1, v3);
+		//	XMVECTOR D = XMVectorReciprocal(XMVector2Dot(v2, v3));
+		//	XMVECTOR t1 = XMVector2Cross(v2, v1);
+		//	XMVECTOR t2 = XMVector2Dot(v1, v3);
 
-			//XMVECTOR mask = XMVectorGreater(t2, XMVectorZero());
-			//// t1 = dot(v1,v3) > 0 ? t1 : -t1;
-			//t1 = XMVectorXorInt(t1, XMVectorAndInt(mask, XMVectorReplicate(-0.f)));
-			t1 = XMVectorMultiply(t1, D);
-			t2 = XMVectorMultiply(t2, D);
+		//	//XMVECTOR mask = XMVectorGreater(t2, XMVectorZero());
+		//	//// t1 = dot(v1,v3) > 0 ? t1 : -t1;
+		//	//t1 = XMVectorXorInt(t1, XMVectorAndInt(mask, XMVectorReplicate(-0.f)));
+		//	t1 = XMVectorMultiply(t1, D);
+		//	t2 = XMVectorMultiply(t2, D);
 
-			// test for t1 > 0 && t2 > 0 && t2 <= 1
-			XMVECTOR mask = XMVectorGreaterOrEqual(t1, XMVectorZero());
-			mask = XMVectorAndInt(mask, XMVectorGreaterOrEqual(t2, XMVectorZero()));
-			mask = XMVectorAndInt(mask, XMVectorLessOrEqual(t2, XMVectorSplatOne()));
+		//	// test for t1 > 0 && t2 > 0 && t2 <= 1
+		//	XMVECTOR mask = XMVectorGreaterOrEqual(t1, XMVectorZero());
+		//	mask = XMVectorAndInt(mask, XMVectorGreaterOrEqual(t2, XMVectorZero()));
+		//	mask = XMVectorAndInt(mask, XMVectorLessOrEqual(t2, XMVectorSplatOne()));
 
-			//t1 = XMVectorMultiplyAdd(t1,v3,Origin);
-			t1 = XMVectorSelect(g_XMQNaN.v, t1, mask);
-			return t1;
-		}
+		//	//t1 = XMVectorMultiplyAdd(t1,v3,Origin);
+		//	t1 = XMVectorSelect(g_XMQNaN.v, t1, mask);
+		//	return t1;
+		//}
 
-		inline XMVECTOR XM_CALLCONV LineSegmentIntersects2D(FXMVECTOR A0, FXMVECTOR A1, FXMVECTOR B0, GXMVECTOR B1)
-		{
-			XMVECTOR dir = A1 - A0;
-			XMVECTOR t = RayIntersects2D(A0, dir, B0, B1);
-			XMVECTOR mask = XMVectorLess(t, XMVectorZero());
-			t = _DXMEXT XMVectorMultiplyAdd(t, dir, A0);
-			t = XMVectorSelect(g_XMQNaN, t, mask);
-			return t;
-		}
+		//inline XMVECTOR XM_CALLCONV LineSegmentIntersects2D(FXMVECTOR A0, FXMVECTOR A1, FXMVECTOR B0, GXMVECTOR B1)
+		//{
+		//	XMVECTOR dir = A1 - A0;
+		//	XMVECTOR t = RayIntersects2D(A0, dir, B0, B1);
+		//	XMVECTOR mask = XMVectorLess(t, XMVectorZero());
+		//	t = _DXMEXT XMVectorMultiplyAdd(t, dir, A0);
+		//	t = XMVectorSelect(g_XMQNaN, t, mask);
+		//	return t;
+		//}
 
 	}
 }
@@ -66,7 +66,7 @@ namespace Geometrics
 	using DirectX::FXMVECTOR;
 
 	template <class T>
-	void laplacianSmooth(gsl::span<T> curve, float alpha/* = 0.8f*/, unsigned IterationTimes /*= 1*/, bool closeLoop /*=false*/)
+	void laplacian_smooth(gsl::span<T> curve, float alpha/* = 0.8f*/, unsigned IterationTimes /*= 1*/, bool close_loop /*=false*/)
 	{
 		unsigned int N = curve.size();
 		std::vector<T> cache(N);
@@ -76,7 +76,7 @@ namespace Geometrics
 
 		for (unsigned int k = 0; k < IterationTimes; k++)
 		{
-			if (!closeLoop)
+			if (!close_loop)
 			{
 				BUFF[dst][0] = BUFF[src][0];
 				BUFF[dst][N - 1] = BUFF[src][N - 1];
@@ -103,65 +103,45 @@ namespace Geometrics
 		}
 	}
 
+	namespace detail
+	{
+		template
+		<typename _Ty, size_t _Dim>
+		struct curve_vertex
+		{
+
+		};
+	}
+
+	template <typename _Ty, size_t _Dim, typename _TVertex = detail::curve_vertex<_Ty,_Dim>>
+	class curve
+	{
+	};
+
 	// Class to represent a spatial curve with anchor points
 	// Provide method for linear sampling from it
-	class SpaceCurve
+	class spatial_curve
 	{
 	public:
 		typedef std::vector<XMFLOAT4A, DirectX::AlignedAllocator<XMFLOAT4A>> AnchorCollection;
-		SpaceCurve();
-		~SpaceCurve();
-		explicit SpaceCurve(const gsl::span<Vector3>& trajectory, bool closeLoop = false);
+		spatial_curve();
+		~spatial_curve();
+		explicit spatial_curve(const gsl::span<Vector3>& trajectory, bool close_loop = false);
 
-		bool isClose() const { return m_isClose; }
-		void setClose(bool close);
-		void closeLoop() { setClose(true); }
+		bool is_close_loop() const { return m_isClose; }
+		void set_close(bool close);
+		void close_loop() { set_close(true); }
 
 	public:
-		int XM_CALLCONV	intersect2D(FXMVECTOR pos, FXMVECTOR dir, std::vector<DirectX::Vector2>* pContainer = nullptr) const
-		{
-			int count = 0;
-			XMVECTOR b1;
-			XMVECTOR e1 = XMLoadA(m_anchors[0]);
-			for (int i = 0; i < m_anchors.size(); i++)
-			{
-				b1 = e1;
-				e1 = XMLoadA(m_anchors[i]);
-				XMVECTOR ip = DirectX::LineSegmentTest::RayIntersects2D(pos, dir, b1, e1);
-				if (!DirectX::XMVector4IsNaN(ip))
-				{
-					++count;
-					if (pContainer)
-						pContainer->push_back(ip);
-				}
-			}
-			return count;
-		}
+		int XM_CALLCONV	intersect_ray_2d(FXMVECTOR pos, FXMVECTOR dir, std::vector<DirectX::Vector2>* pContainer = nullptr) const;
 
-		int XM_CALLCONV	intersectSegment2D(FXMVECTOR A0, FXMVECTOR A1, std::vector<DirectX::Vector2>* pContainer = nullptr) const
-		{
-			int count = 0;
-			XMVECTOR b1;
-			XMVECTOR e1 = XMLoadA(m_anchors[0]);
-			for (int i = 0; i < m_anchors.size(); i++)
-			{
-				b1 = e1;
-				e1 = XMLoadA(m_anchors[i]);
-				XMVECTOR ip = DirectX::LineSegmentTest::LineSegmentIntersects2D(A0, A1, b1, e1,nullptr);
-				if (!DirectX::XMVector4IsNaN(ip))
-				{
-					++count;
-					if (pContainer)
-						pContainer->push_back(ip);
-				}
-			}
-			return count;
-		}
+		int XM_CALLCONV	intersect_segment_2d(FXMVECTOR A0, FXMVECTOR A1, std::vector<DirectX::Vector2>* pContainer = nullptr) const;
 
-
-		bool XM_CALLCONV contains2D(FXMVECTOR p, FXMVECTOR test_dir = DirectX::g_XMIdentityR0) const
+		// check if a given 2D position is contained inside the X-Y projected 2d curve 
+		// with the method of casting counting a ray interestion;
+		bool XM_CALLCONV contains_2d(FXMVECTOR p, FXMVECTOR test_dir = DirectX::g_XMIdentityR0) const
 		{
-			return m_isClose && intersect2D(p, test_dir) & 0x2;
+			return m_isClose && (intersect_ray_2d(p, test_dir) % 2);
 		}
 
 		size_t size() const;
@@ -176,25 +156,28 @@ namespace Geometrics
 		XMVECTOR back() const;
 
 		// Retrive the point at parameter position 't' belongs to [0,1]
-		// This O(LogN) level operation
+		// This is O(LogN) level operation
 		// perform a binary search in anchors 
 		// returns a 4D vector where xyz represent the Position 
 		// w is the length from start to point;
-		XMVECTOR extract(float t) const;
-		XMVECTOR position(float t) const { return extract(t); }
-		XMVECTOR position(int idx) const {
+		XMVECTOR XM_CALLCONV position(float t) const;
+		XMVECTOR XM_CALLCONV position(float t, int hint) const;
+
+		inline XMVECTOR XM_CALLCONV anchor_position(int idx) const {
 			using namespace DirectX;
 			XMVECTOR v = XMLoadFloat4A(&m_anchors[idx]); 
 			v = XMVectorSelect(v, g_XMIdentityR3.v, g_XMIdentityR3.v);
 			return v;
 		}
-		// eval tangent at parameter position t
-		XMVECTOR tangent(float t) const;
+		// eval tangent at parameter position t, O(LogN)
+		XMVECTOR XM_CALLCONV tangent(float t) const;
+		// eval tangent at parameter position t, with a position hint, time-complexity: hint hit O(1), worest case O(LogN)
+		XMVECTOR XM_CALLCONV tangent(float t, int hint) const;
 		// eval tangent at anchor position idx
-		XMVECTOR tangent(int idx) const;
+		XMVECTOR XM_CALLCONV anchor_tangent(int idx) const;
 
-		inline XMVECTOR operator[](int idx) const { return XMLoadFloat4A(&m_anchors[idx]); }
-		inline XMVECTOR operator()(float t) const { return extract(t); }
+		inline XMVECTOR XM_CALLCONV operator[](int idx) const { return XMLoadFloat4A(&m_anchors[idx]); }
+		inline XMVECTOR XM_CALLCONV operator()(float t) const { return position(t); }
 
 
 		std::vector<Vector3> sample(size_t sampleCount) const;
@@ -202,11 +185,13 @@ namespace Geometrics
 
 		void smooth(float alpha/* = 0.8f*/, unsigned iteration /*= 1*/);
 
-		std::vector<Vector3> FixIntervalSampling(float Interval) const;
+		std::vector<Vector3> equidistant_sample(float Interval) const;
+
 		std::vector<Vector3> FixCountSampling(unsigned int SampleSegmentCount, bool Smooth = true) const;
 		std::vector<Vector3> FixCountSampling2(unsigned int SampleSegmentCount) const;
 
-		void updateLength();
+		// Update the parameterization information
+		void update();
 
 		const XMFLOAT4A& anchor(int idx) const
 		{

@@ -11,7 +11,7 @@ namespace Geometrics
 	using DirectX::Ray;
 	using DirectX::FXMVECTOR;
 
-	using Curve = SpaceCurve;
+	using Curve = spatial_curve;
 
 	struct DefaultVertex
 	{
@@ -66,10 +66,10 @@ namespace Geometrics
 
 		bool append(XMVECTOR position, int fid);
 
-		void closeLoop()
+		void close_loop()
 		{
-			m_boundry.closeLoop();
-			m_uvCurve.closeLoop();
+			m_boundry.close_loop();
+			m_uvCurve.close_loop();
 		}
 
 		// convert uv to positon in world space
@@ -213,7 +213,7 @@ namespace Geometrics
 			{
 				auto& ach = reinterpret_cast<XMFLOAT3A&>(curve.anchor(i));
 
-				XMVECTOR vr = curve.position(i) - center;
+				XMVECTOR vr = curve.anchor_position(i) - center;
 				vr = XMVector3Rotate(vr, rotation);
 
 				XMStoreFloat3A(&ach, vr);
@@ -236,7 +236,7 @@ namespace Geometrics
 					curve.anchor(i) = temp.anchor((minAidx + i) % n);
 				}
 
-				curve.updateLength();
+				curve.update();
 			}
 
 		}
@@ -260,7 +260,7 @@ namespace Geometrics
 			XMVECTOR center = XMVectorZero();
 			for (int i = 0; i < n; i++)
 			{
-				center += curve.position(i);
+				center += curve.anchor_position(i);
 			}
 			center /= (float)n;
 
@@ -268,7 +268,7 @@ namespace Geometrics
 			XMVECTOR axis = XMVectorZero();
 			for (int i = 0; i < n; i++)
 			{
-				XMVECTOR vr = curve.position(i) - center;
+				XMVECTOR vr = curve.anchor_position(i) - center;
 				XMVECTOR vt = curve.tangent(i);
 				vt = XMVector3Cross(vr, vt);
 				axis += vt;
@@ -312,7 +312,7 @@ namespace Geometrics
 		path.resample(axisSubdiv + 1);
 		//path.smooth(0.8f, 8);
 
-		XMVECTOR p0 = path.position(0);;
+		XMVECTOR p0 = path.anchor_position(0);;
 		XMVECTOR t0 = path.tangent(0);
 		if (XMVector4Less(t0, g_XMEpsilon.v))
 			t0 = stdAxis;
@@ -360,7 +360,7 @@ namespace Geometrics
 			XMVECTOR tv = XMVectorReplicate(t);
 
 			// axis posion
-			XMVECTOR pt = path.position(axisIdx);
+			XMVECTOR pt = path.anchor_position(axisIdx);
 			// axis tanget
 			XMVECTOR tt = path.tangent(axisIdx);
 
@@ -381,12 +381,12 @@ namespace Geometrics
 				XMVECTOR v, vt;
 				float polart = (float)i / (float)(polarSubdiv + 1);
 
-				v = bottom.position(i);
+				v = bottom.anchor_position(i);
 				vt = bottom.tangent(i);
 				if (useTop)
 				{
 					// Lerp between bottom curve and top curve
-					v = XMVectorLerpV(v, top.position(i), tv);
+					v = XMVectorLerpV(v, top.anchor_position(i), tv);
 					vt = XMVectorLerpV(vt, top.tangent(i), tv);
 				}
 

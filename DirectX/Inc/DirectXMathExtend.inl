@@ -86,6 +86,52 @@ namespace DirectX
 
 	namespace LineSegmentTest
 	{
+		// 2D Ray-LineSegment Interesection test
+		// Returns QNaN if intersection is not valiad
+		// Returns the persudo-distance t
+		// Use Origin + t*Dir = intersection point  
+		inline XMVECTOR XM_CALLCONV RayIntersects2D(FXMVECTOR Origin, FXMVECTOR Dir, FXMVECTOR A0, GXMVECTOR A1)
+		{
+			// Credit source
+			// https://rootllama.wordpress.com/2014/06/20/ray-line-segment-intersection-test-in-2d/
+
+			XMVECTOR v1 = Origin - A0;
+			XMVECTOR v2 = A1 - A0;
+			XMVECTOR v3 = XMVectorSwizzle<1, 0, 2, 3>(Dir) * g_XMNegateX.v;
+
+			XMVECTOR D = XMVectorReciprocal(XMVector2Dot(v2, v3));
+			XMVECTOR t1 = XMVector2Cross(v2, v1);
+			XMVECTOR t2 = XMVector2Dot(v1, v3);
+
+			//XMVECTOR mask = XMVectorGreater(t2, XMVectorZero());
+			//// t1 = dot(v1,v3) > 0 ? t1 : -t1;
+			//t1 = XMVectorXorInt(t1, XMVectorAndInt(mask, XMVectorReplicate(-0.f)));
+			t1 = XMVectorMultiply(t1, D);
+			t2 = XMVectorMultiply(t2, D);
+
+			// test for t1 > 0 && t2 > 0 && t2 <= 1
+			XMVECTOR mask = XMVectorGreaterOrEqual(t1, XMVectorZero());
+			mask = XMVectorAndInt(mask, XMVectorGreaterOrEqual(t2, XMVectorZero()));
+			mask = XMVectorAndInt(mask, XMVectorLessOrEqual(t2, XMVectorSplatOne()));
+
+			//t1 = XMVectorMultiplyAdd(t1,v3,Origin);
+			t1 = XMVectorSelect(g_XMQNaN.v, t1, mask);
+			return t1;
+		}
+
+		// 2D LineSegment-LineSegment Interesection Test
+		// Returns Interesection-Position of A0-A1 with B0-B1 if present
+		// Returns QNaN when not interesected
+		inline XMVECTOR XM_CALLCONV LineSegmentIntersects2D(FXMVECTOR A0, FXMVECTOR A1, FXMVECTOR B0, GXMVECTOR B1)
+		{
+			XMVECTOR dir = A1 - A0;
+			XMVECTOR t = RayIntersects2D(A0, dir, B0, B1);
+			XMVECTOR mask = XMVectorLess(t, XMVectorZero());
+			t = _DXMEXT XMVectorMultiplyAdd(t, dir, A0);
+			t = XMVectorSelect(g_XMQNaN, t, mask);
+			return t;
+		}
+
 		inline float XM_CALLCONV Distance(FXMVECTOR p, FXMVECTOR s0, FXMVECTOR s1)
 		{
 			XMVECTOR s = s1 - s0;

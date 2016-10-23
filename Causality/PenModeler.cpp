@@ -207,16 +207,13 @@ void PenModeler::SrufaceSketchUpdate(XMVECTOR pos, XMVECTOR dir)
 
 	bool touching = false;
 	// Find closest point on mesh using pen direction
-	vector<Geometrics::MeshRayIntersectionInfo> interInfos;
 	pos -= dir * TrackedPen::TipLength * 0.5f / Parent()->GetScale().x;
-	m_target->intersect(pos, dir, &interInfos);
+	auto info = m_target->first_intersect(pos, dir);
 
-	if (interInfos.size() == 0) {
+	if (info) {
 		cout << "Pen not touching; no intersections" << endl;
 		return;
 	}
-
-	auto& info = interInfos[0];
 
 	float shortestDist = info.distance;
 
@@ -249,7 +246,7 @@ void PenModeler::SurfaceSketchEnd()
 		m_patches.pop_back();
 	}
 
-	patch.closeLoop();
+	patch.close_loop();
 
 	//curve.append(curve[0]);
 	//auto curveMap = Eigen::Matrix<float, -1, 4, Eigen::RowMajor>::MapAligned((float*)curve.data(), curve.size(), 4);

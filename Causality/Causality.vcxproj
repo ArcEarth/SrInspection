@@ -292,6 +292,7 @@
     <ClInclude Include="Application.h" />
     <ClInclude Include="CCA.h" />
     <ClInclude Include="Keyboard.h" />
+    <ClInclude Include="SRInterface.hpp" />
     <ClInclude Include="SurfaceInspectionPlanner.h" />
     <ClInclude Include="TrackedObjectControl.h" />
     <ClInclude Include="TrackerdPen.h" />

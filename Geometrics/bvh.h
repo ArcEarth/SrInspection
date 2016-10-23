@@ -209,6 +209,8 @@ namespace Geometrics {
 			rebuild();
 		}
 
+		void set_volumn_getter(const volumn_func& get_volumn_func) { mf_getbox = get_volumn_func; }
+
 		node_handle get_parent(node_handle nid) const { return m_nodes[nid].parent; }
 
 		iterator_range<const node_handle*> get_children(node_handle nid) const

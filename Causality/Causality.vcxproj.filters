@@ -401,6 +401,9 @@
     <ClInclude Include="SurfaceInspectionPlanner.h">
       <Filter>PenModeler</Filter>
     </ClInclude>
+    <ClInclude Include="SRInterface.hpp">
+      <Filter>PenModeler</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <Image Include="icon1.ico">

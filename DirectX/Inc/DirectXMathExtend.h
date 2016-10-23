@@ -1462,18 +1462,23 @@ namespace DirectX
 
 	namespace LineSegmentTest
 	{
-		inline XMVECTOR XM_CALLCONV LineSegmentIntersects2D(FXMVECTOR A0, FXMVECTOR A1, FXMVECTOR B0, GXMVECTOR B1, XMVECTOR* pIntersection = nullptr);
+		inline XMVECTOR XM_CALLCONV RayIntersects2D(FXMVECTOR Origin, FXMVECTOR Dir, FXMVECTOR A0, GXMVECTOR A1);
+		inline XMVECTOR XM_CALLCONV LineSegmentIntersects2D(FXMVECTOR A0, FXMVECTOR A1, FXMVECTOR B0, GXMVECTOR B1);
 
+		// Shortest Distance from point <p> to line segment <s0>-<s1>
 		inline float XM_CALLCONV Distance(FXMVECTOR p, FXMVECTOR s0, FXMVECTOR s1);
+		// Shortest Distance from point <p> to an line-stripe <path>
 		inline float XM_CALLCONV Distance(FXMVECTOR p, const XMFLOAT3 *path, size_t nPoint, size_t strideInByte = sizeof(XMFLOAT3));
 
 		// Takes a space point and space line segment , return the projection point on the line segment
-		//  A0  |		A1		  |
-		//      |s0-------------s1|
-		//      |				  |		A2
-		// where p in area of A0 returns s0 , area A2 returns s1 , point in A1 returns the really projection point 
+		//      |		A1		  |
+		// A0   |s0-------------s1| A2
+		//      |		A1		  |		
+		// where <p> locate in area of A0 returns <s0> , area A2 returns <s1> , point in A1 returns the really projection point in <s0>-<s1>
 		inline XMVECTOR XM_CALLCONV Projection(FXMVECTOR p, FXMVECTOR s0, FXMVECTOR s1);
 
+		// Project point <p> into an line-stripe <path>
+		// The return value is always has the shortest to point <p> for any points locate within the line stripe <path>
 		template <typename T>
 		inline XMVECTOR XM_CALLCONV Projection(FXMVECTOR p, const T *path, size_t nPoint, size_t strideInByte = sizeof(T));
 	}

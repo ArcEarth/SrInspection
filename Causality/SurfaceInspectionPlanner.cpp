@@ -45,6 +45,18 @@ float g_ControlPointsConnectionRadius = 0.002;
 bool  g_VisualizeNormal = false;
 static constexpr size_t g_DecalResolution = 2048;
 
+constexpr float deg2rad(float deg)
+{
+	return (deg * (3.141592654f / 180.0f));
+}
+
+InspectionCameraParameter InspectionPatch::DefaultCameraParam = {
+	deg2rad(24),	//FoV
+	3.0f/4.0f,		//Aspect
+	8.0f,			//Focus
+	0.14f};			//DoF
+float InspectionPatch::DefaultUvScale = 50.0f;
+
 namespace Causality
 {
 	extern bool		g_DebugView;
@@ -97,11 +109,18 @@ void SurfaceInspectionPlanner::Parse(const ParamArchive * archive)
 	int tessellation = 9;
 	GetParam(archive, "tessellation", tessellation);
 	GetParam(archive, "color", color);
+	m_cameraParam = InspectionPatch::DefaultCameraParam;
 	float patchSize = 0.1f, margin = 0.001f, z_tolerence = 0.01;
 
 	GetParam(archive, "patch_size", patchSize);
 	GetParam(archive, "margin", margin);
-	GetParam(archive, "z_tolerence", z_tolerence);
+
+	// Camera settings
+	GetParam(archive, "dof", m_cameraParam.DepthOfField);
+	GetParam(archive, "fov", m_cameraParam.FieldOfView);
+	GetParam(archive, "aspect", m_cameraParam.Aspect);
+	GetParam(archive, "focus", m_cameraParam.Focus);
+
 	GetParam(archive, "active_fill_color", m_decalFill);
 	GetParam(archive, "stroke_color", m_decalStroke);
 	//GetParam(archive, "camera_hfov", );
@@ -330,7 +349,7 @@ void SurfaceInspectionPlanner::ExtractWorkloadMesh(const IModelNode* pModel)
 		p = XMVectorMultiplyAdd(p, uvmax, uvmin);
 		set_uv(v, p);
 	}
-
+	m_workloadUvScale = obb.Extents.x * 2.0f;
 	m_mesh.build();
 	m_previwPatch.m_opticity = 0.5f;
 	m_previwPatch.setSurface(&m_mesh);
@@ -418,9 +437,9 @@ void SurfaceInspectionPlanner::TesselateBezeirPatch(int tessellation, DirectX::S
 
 }
 
-InspectionPatch * SurfaceInspectionPlanner::AddInspectionPatch(FXMVECTOR uv, int fid)
+InspectionPatch * SurfaceInspectionPlanner::AddInspectionPatch(const InspectionPatch& _patch)
 {
-	m_isPatches.push_back(m_previwPatch);
+	m_isPatches.push_back(_patch);
 	auto& patch = m_isPatches.back();
 	CaculateCameraPath();
 	patch.m_opticity = 0.8f;
@@ -617,12 +636,21 @@ void SurfaceInspectionPlanner::GenerateScript() const
 	//system((workload_root / "excute.bat").string().c_str());
 }
 
+void SurfaceInspectionPlanner::SetRectanglePatchPreview(InspectionPatch& patch, const MeshType::IntersectionVertex& iv)
+{
+	patch.m_intersectedVertex = iv; // copy the intersection info
+	patch.SetSurfaceCurveToUVRect(get_uv(iv), patch.m_uvExtent);
+	patch.CaculateCameraFrustum();
+	m_declDirtyFalg = 1;
+}
+
 SurfaceInspectionPlanner::SurfaceInspectionPlanner()
 {
 	static const size_t g_MaxPatchCount = 64;
 	m_state = State_Initializing;
 	m_pen = nullptr;
 	m_workloadObj = nullptr;
+	m_activePatch = nullptr;
 	m_isPatches.reserve(g_MaxPatchCount);
 	this->OnParentChanged += [this](SceneObject* _this, SceneObject* old_parent)
 	{
@@ -637,9 +665,7 @@ SurfaceInspectionPlanner::SurfaceInspectionPlanner()
 	{
 		if (arg.Key == VK_RETURN && this->m_state == State_Idle && this->m_isHit)
 		{
-			auto its = this->m_isInfo;
-			auto v = this->m_mesh.persudo_vertex(its.facet, its.barycentric);
-			this->AddInspectionPatch(get_uv(v), its.facet);
+			this->AddInspectionPatch(this->m_previwPatch);
 		}
 		if (arg.Key == 'P')
 		{
@@ -747,15 +773,23 @@ void SurfaceInspectionPlanner::Update(time_seconds const & time_delta)
 		XMVECTOR pos = m_pen->GetTipPosition();
 		XMVECTOR dir = m_pen->GetTipDirection();
 
+		bool lastHit = m_isHit;
 		bool hit = HitTest(pos, dir);
+
+		if (lastHit ^ hit)
+			m_declDirtyFalg = 1;
+
 		if (hit)
 		{
 			if (m_state == State_Idle) // Pressing Button 
 			{
-				auto pv = m_mesh.persudo_vertex(m_isInfo.facet, m_isInfo.barycentric);
+				auto& pv = m_intersectedVertex;
+
+				m_activePatch = TrySelectInspectionPatch(get_uv(pv), m_intersectedVertex.facet);
+				auto patch = m_activePatch;
+
 				if (m_pen->IsInking())
 				{
-					auto patch = TrySelectInspectionPatch(get_uv(pv), m_isInfo.facet);
 					if (patch)
 						SurfacePatchDragBegin(patch);
 					else
@@ -763,10 +797,8 @@ void SurfaceInspectionPlanner::Update(time_seconds const & time_delta)
 				}
 				else
 				{
-					m_previwPatch.m_isInfo = m_isInfo; // copy the intersection info
-					m_previwPatch.SetSurfaceCurveToUVRect(get_uv(pv), m_previwPatch.m_uvExtent);
-					m_previwPatch.CaculateCameraFrustum();
-					m_declDirtyFalg = 1;
+					m_previwPatch.SetCameraParameter(m_cameraParam.FieldOfView, m_cameraParam.Aspect, m_cameraParam.Focus, m_cameraParam.DepthOfField, m_workloadUvScale);
+					SetRectanglePatchPreview(m_previwPatch, m_intersectedVertex); // Equals to draw a rectangle of fixed size
 				}
 			}
 
@@ -818,12 +850,12 @@ bool XM_CALLCONV SurfaceInspectionPlanner::HitTest(FXMVECTOR pos_world, FXMVECTO
 	//if (!m_decalModel->GetBoundingBox().Intersects(pos, dir, dis))
 	//	return false;
 
-	m_isInfo = m_mesh.first_intersect(pos, dir);
-	m_isHit = m_isInfo.facet >= 0;
+	m_intersectedVertex = m_mesh.first_intersect(pos, dir);
+	m_isHit = m_intersectedVertex.facet >= 0;
 	//if (!intersecs.empty())
 	//{
 	//	m_isHit = true;
-	//	m_isInfo = intersecs[0];
+	//	m_intersectedVertex = intersecs[0];
 	//}
 	return m_isHit;
 }
@@ -903,11 +935,11 @@ void SurfaceInspectionPlanner::Render(IRenderContext * pContext, IEffect * pEffe
 			{
 				int level = DrawBVH(m_mesh.triangle_bvh, m_mesh.triangle_bvh.root(), 20);
 
-				int err = DrawBVH2(m_mesh.triangle_bvh, m_isInfo.facet, m_castRay);
+				int err = DrawBVH2(m_mesh.triangle_bvh, m_intersectedVertex.facet, m_castRay);
 
 				if (err != -1)
 				{
-					auto tri = m_mesh.facet(m_isInfo.facet);
+					auto tri = m_mesh.facet(m_intersectedVertex.facet);
 
 					XMVECTOR v0 = get_position(m_mesh.vertices[tri[0]]);
 					XMVECTOR v1 = get_position(m_mesh.vertices[tri[1]]);
@@ -918,7 +950,7 @@ void SurfaceInspectionPlanner::Render(IRenderContext * pContext, IEffect * pEffe
 				}
 			}
 
-			if (m_isHit)
+			if (m_isHit && !m_activePatch)
 				DrawPatchCamera(m_previwPatch);
 
 			for (auto& patch : m_isPatches)
@@ -1070,7 +1102,7 @@ void SurfaceInspectionPlanner::RenderCursor(IRenderContext * pContext, IEffect *
 		alpha = 1.0f;
 		//color = Colors::Red;
 		scl /= 20.0f;
-		pos = m_isInfo.position;
+		pos = XMLoad(m_intersectedVertex.position);
 	}
 
 	float length = 0.01f / scl;
@@ -1114,7 +1146,7 @@ InspectionPatch * SurfaceInspectionPlanner::TrySelectInspectionPatch(FXMVECTOR u
 {
 	for (auto& patch : m_isPatches)
 	{
-		if (patch.uvBoundry().contains2D(uv))
+		if (patch.uvBoundry().contains_2d(uv))
 			return &patch;
 	}
 	return nullptr;
@@ -1133,14 +1165,20 @@ void SurfaceInspectionPlanner::DrawDecal(I2DContext *pContext)
 	pContext->BeginDraw();
 	pContext->Clear(GetD2DColor(m_decalBackground));
 
-	if (m_isHit)
+	if (m_isHit && !m_activePatch)
 	{
 		auto pFactory = this->Scene->Get2DFactory();
+		m_previwPatch.m_opticity = 0.5f;
 		m_previwPatch.UpdateGeometry(pFactory); // reset the histogram
 		m_previwPatch.DrawDecal(pContext, m_brush.Get());
 	}
 	for (auto& patch : m_isPatches)
+	{
+		patch.m_opticity = &patch == m_activePatch ? 1.0f : 0.8f;
+		patch.m_borderThinkness = &patch == m_activePatch ? 4.0f : 1.0f;
+
 		patch.DrawDecal(pContext, m_brush.Get());
+	}
 
 	ThrowIfFailed(pContext->EndDraw());
 	pContext->SetTarget(nullptr);
@@ -1152,44 +1190,41 @@ void SurfaceInspectionPlanner::SurfaceSketchBegin()
 {
 	if (!m_mesh.empty())
 	{
-		m_isPatches.emplace_back();
-		m_isPatches.back().setSurface(&m_mesh);
+		m_previwPatch.clear();
 		m_state = State_DrawingPatch;
 	}
 }
 
 void SurfaceInspectionPlanner::SrufaceSketchUpdate(XMVECTOR pos, XMVECTOR dir)
 {
-	static float g_contactThred = 0.05f;
+	static float g_contactThred = 100.0f;
 	if (m_mesh.empty()) return;
 
 	bool touching = false;
-	// Find closest point on mesh using pen direction
-	vector<Geometrics::MeshRayIntersectionInfo> interInfos;
-	pos -= dir * TrackedPen::TipLength * 0.5f / Parent()->GetScale().x;
-	m_mesh.intersect(pos, dir, &interInfos);
 
-	if (interInfos.size() == 0) {
-		std::cout << "Pen not touching; no intersections" << std::endl;
-		return;
-	}
-
-	auto& info = interInfos[0];
-
-	float shortestDist = info.distance;
+	auto& info = m_intersectedVertex;
 
 	// this is cm
-	if (shortestDist < g_contactThred) {
+	if (info.is_valiad() && info.distance < g_contactThred) {
 		// touching
-		auto & patch = m_isPatches.back();
+		auto & patch = m_previwPatch;
 		//auto& curve = patch.boundry();
-		patch.append(info.position, info.facet);
+		patch.append(XMLoad(info.position), info.facet);
 
 		auto& uvCurve = patch.uvBoundry();
-		if (uvCurve.size() > 2)
+		if (uvCurve.size() > 4)
 		{
-			auto uvs = patch.uvBoundry().sample(std::min((int)uvCurve.size(), 100));
-			//UpdateRenderGeometry(uvs, Vector2(g_DecalResolution));
+			//auto uvs = patch.uvBoundry().sample(std::min((int)uvCurve.size(), 100));
+			auto& uvcurve = patch.uvBoundry().anchors();
+
+			DirectX::BoundingBox box;
+			DirectX::BoundingBox::CreateFromPoints(box, uvcurve.size(),reinterpret_cast<const XMFLOAT3*>(&uvcurve[0]), sizeof(std::decay_t<decltype(uvcurve[0])>));
+			m_previwPatch.m_uvCenter = XMLoad(box.Center);
+			m_previwPatch.m_uvExtent = XMLoad(box.Extents);
+
+			m_previwPatch.CaculateCameraFrustum();
+			m_previwPatch.UpdateGeometry(Scene->Get2DFactory(),true);
+			m_declDirtyFalg = true;
 		}
 	}
 }
@@ -1197,25 +1232,8 @@ void SurfaceInspectionPlanner::SrufaceSketchUpdate(XMVECTOR pos, XMVECTOR dir)
 void SurfaceInspectionPlanner::SurfaceSketchEnd()
 {
 	m_state = State_Idle;
-	auto& patch = m_isPatches.back();
-	auto& curve = patch.boundry();
-	if (curve.empty())
-	{
-		m_isPatches.pop_back();
-	}
-
-	patch.closeLoop();
-
-	//curve.append(curve[0]);
-	//auto curveMap = Eigen::Matrix<float, -1, 4, Eigen::RowMajor>::MapAligned((float*)curve.data(), curve.size(), 4);
-	//Eigen::laplacianSmooth(curveMap, 0.8);
-	//curve.updateLength();
-
-	//if (curve.size() > 100)
-	//{
-	//	curve.resample(100);
-	//}
-	//curve.smooth(0.8f, 4);
+	this->AddInspectionPatch(this->m_previwPatch);
+	m_previwPatch.clear();
 }
 
 void SurfaceInspectionPlanner::SurfacePatchDragBegin(InspectionPatch *patch)
@@ -1228,39 +1246,53 @@ void SurfaceInspectionPlanner::SurfacePatchDragBegin(InspectionPatch *patch)
 
 void SurfaceInspectionPlanner::SurfacePatchDragUpdate(FXMVECTOR pos)
 {
-	m_activePatch;
+	
 }
 
 void SurfaceInspectionPlanner::SurfacePatchDragEnd()
 {
+	std::clog << "[Event] Patch Drag End" << std::endl;
 	m_state = State_Idle;
 	m_activePatch = nullptr;
 }
 
 InspectionPatch::InspectionPatch()
+	: m_areaFacets(1024*4), m_areaVertices(1024*4)
 {
 	Valiad = false;
 	m_uvRotation = .0f;
 	m_opticity = 1.0f;
 
-	m_defaultCameraFrustum.Far = 8.0f;
-	m_defaultCameraFrustum.Near = 1.0f;
+	m_fillColor = Colors::White.v;
+	m_borderColor = Colors::Black.v;
+	m_borderThinkness = 2.0f;
+
+	m_decalTransform = D2D1::Matrix3x2F::Identity();
+	DecalSize = Vector2(g_DecalResolution);
+
+	SetCameraParameter(	DefaultCameraParam.DepthOfField,
+						DefaultCameraParam.Aspect,
+						DefaultCameraParam.Focus,
+						DefaultCameraParam.DepthOfField,
+						DefaultUvScale);
+}
+
+void InspectionPatch::SetCameraParameter(float fov_x_rad, float aspect_h_by_w, float focus_distance, float focus_dof, float uvscale)
+{
+	m_defaultCameraFrustum.Far = focus_distance;
+	m_defaultCameraFrustum.Near = focus_distance / 10.0f;
 	// it is actually half fov
-	float hfov = tanf(XMConvertToRadians(16)); //10
-	float vfov = tanf(XMConvertToRadians(12)); //7.5
+	float hfov = tanf(fov_x_rad * 0.5f); //10
+	float vfov = tanf(fov_x_rad * aspect_h_by_w * 0.5f); //7.5
 	m_defaultCameraFrustum.RightSlope = hfov;
 	m_defaultCameraFrustum.LeftSlope = -hfov;
 	m_defaultCameraFrustum.TopSlope = vfov;
 	m_defaultCameraFrustum.BottomSlope = -vfov;
 
-	m_decalTransform = D2D1::Matrix3x2F::Identity();
-
-	DecalSize = Vector2(g_DecalResolution);
 	// 1/(physical dimension) * sqrt(2), so that the uv rect scales up and misalign with 45 degree  will still contains in
-	float phydim = 50.0f;
 	float minfov = std::fminf(hfov, vfov);
-	ZTolerance = 0.16f; //0.14f
-	m_uvExtent = 1 / (phydim * sqrtf(2)) * m_defaultCameraFrustum.Far * Vector2(minfov, minfov);
+	ZTolerance = focus_dof; //0.14f
+	m_uvExtent = 1 / (uvscale * sqrtf(2)) * focus_distance * Vector2(minfov, minfov);
 }
 
 //InspectionPatch::InspectionPatch(const InspectionPatch & rhs)
@@ -1287,7 +1319,7 @@ bool InspectionPatch::CaculateCameraFrustum()
 	std::vector<XMVECTOR, XMAllocator> normals;
 
 	// Positions contains vertices & persudo-vertex added in the boundry
-	CaculateVerticsInPatch(m_isInfo.facet, BoundingBox, positions);
+	CaculateVerticsInPatch(m_intersectedVertex.facet, BoundingBox, positions);
 
 	if (positions.size() == 0)
 	{
@@ -1334,7 +1366,7 @@ void InspectionPatch::CaculateVerticsInPatch(int fid, const DirectX::BoundingOri
 	m_areaVertices.clear();
 	m_areaFacets.clear();
 	//std::cout << "Testing Facets ";
-	// m_areaFacets.reserve(); C * PatchArea / SurfaceArea * SurfaceTriangleCount
+	//m_areaFacets.reserve(this->m_surface->facets().size()); //C * PatchArea / SurfaceArea * SurfaceTriangleCount
 	m_surface->find_adjacant_facets_of(fid, [this, uvmin, uvmax](tri_idx_t facet_id) -> tri_containment_t {
 		tri_containment_t contains;
 		//std::cout << facet_id << ',';
@@ -1592,7 +1624,7 @@ void XM_CALLCONV InspectionPatch::SetSurfaceCurveToUVRect(FXMVECTOR uvc, FXMVECT
 	m_uvCurve.push_back(uvc + flx, true); // ( 1,-1)
 	m_uvCurve.push_back(uvc + onx, true); // ( 1, 1)
 	m_uvCurve.push_back(uvc - flx, true); // (-1, 1)
-	m_uvCurve.closeLoop();
+	m_uvCurve.close_loop();
 	m_dirty = 3;
 }
 
@@ -1610,15 +1642,18 @@ inline float2 XM_CALLCONV xy2uv(float2 xy)
 void InspectionPatch::UpdateGeometry(I2DFactory* pFactory, bool smooth)
 {
 	auto& points = this->m_uvCurve.anchors();
-	auto smoothed = m_uvCurve.sample(100);
+	std::vector<Vector3> smoothed;
 
 	if (points.size() <= 1)
 		return;
 
+	if (smooth)
+		smoothed = m_uvCurve.equidistant_sample(0.005f);
+
 	pFactory->CreatePathGeometry(&m_deaclGeometry);
 	cptr<ID2D1GeometrySink> pSink;
 	ThrowIfFailed(m_deaclGeometry->Open(&pSink));
-	pSink->SetFillMode(D2D1_FILL_MODE_WINDING);
+	pSink->SetFillMode(D2D1_FILL_MODE_ALTERNATE);
 
 	float2 scl = load(DecalSize);
 
@@ -1629,10 +1664,10 @@ void InspectionPatch::UpdateGeometry(I2DFactory* pFactory, bool smooth)
 	for (int i = 0; i < n; i++)
 	{
 		float2 v;
-		//if (smooth)
-		//	v = load(smoothed[i]).xy();
-		//else
-		v = load(points[i]).xy();
+		if (smooth)
+			v = load(smoothed[i]).xy();
+		else
+			v = load(points[i]).xy();
 
 		//std::cout << v << "=>";
 		v = v * scl;
@@ -1700,9 +1735,11 @@ void InspectionPatch::DrawDecal(I2DContext * pContext, ID2D1SolidColorBrush * pB
 	pBrush->SetColor(GetD2DColor(color));
 	pContext->FillGeometry(m_deaclGeometry.Get(), pBrush);
 
-	color = Colors::Black.v;
+	color = m_borderColor;
+	color.w = m_opticity;
 	pBrush->SetColor(GetD2DColor(color));
-	pContext->DrawGeometry(m_curvHistoGeometry.Get(), pBrush, 2.0f / DecalSize.Length());
+	pContext->DrawGeometry(m_deaclGeometry.Get(), pBrush, m_borderThinkness/* / DecalSize.Length()*/);
+
 	color = Colors::White.v;
 	pBrush->SetColor(GetD2DColor(color));
 	if (m_curvHistoGeometry)

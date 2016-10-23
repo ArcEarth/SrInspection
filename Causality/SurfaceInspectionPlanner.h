@@ -19,18 +19,32 @@ namespace Causality
 
 		using MeshType = TriangleMeshType;
 
+		struct InspectionCameraParameter
+		{
+			float FieldOfView; // In Rad, X-axis
+			float Aspect;	   // H/W
+			float Focus;	   // Focusd Distance
+			float DepthOfField;// Z-Tolerence
+		};
+
 		struct InspectionPatch : public Geometrics::SurfacePatch<MeshType>
 		{
+			static InspectionCameraParameter DefaultCameraParam;
+			static float			DefaultUvScale;		// 50
+
 			using base_type = Geometrics::SurfacePatch<MeshType>;
 			InspectionPatch();
 
+			void SetCameraParameter(float fov_x_rad, float aspect_h_by_w, float focus_distance, float focus_dof, float uvscale);
+
 			Vector2					DecalSize;
 
-			float					m_opticity;
+			bool					m_isComplex;
 			Vector2					m_uvCenter;
 			Vector2					m_uvExtent;
 
-			Geometrics::MeshRayIntersectionInfo m_isInfo;
+			MeshType::IntersectionVertex
+									m_intersectedVertex;
 			Vector3					m_center;
 			Vector3					m_centerNormal;
 			Vector3					m_extent;
@@ -56,6 +70,12 @@ namespace Causality
 
 			D2D1::Matrix3x2F		m_decalTransform;
 			bool					m_requireRedraw;
+
+			Color					m_fillColor;
+			Color					m_borderColor;
+			float					m_borderThinkness;
+			float					m_opticity;
+
 			cptr<ID2D1PathGeometry> m_deaclGeometry;
 			cptr<ID2D1PathGeometry> m_curvHistoGeometry;
 
@@ -96,6 +116,14 @@ namespace Causality
 		};
 
 		typedef std::vector<InspectionPatch> InspectionPath;
+
+		class SurfaceSketchManager
+		{
+		public:
+			int Begin(InspectionPatch& patch);
+			void End();
+			int Update(const MeshType::IntersectionVertex& iv);
+		};
 
 		class SurfaceInspectionPlanner : public SceneObject, public IVisual
 		{
@@ -145,11 +173,13 @@ namespace Causality
 			void TesselateBezeirPatch(int tessellation, DirectX::SimpleMath::Color &color);
 
 
-			InspectionPatch* AddInspectionPatch(FXMVECTOR uv, int fid);
+			InspectionPatch* AddInspectionPatch(const InspectionPatch& patch);
 			void CaculateCameraPath();
 			void RemovePatch(InspectionPatch* patch);
 			void PrintPlan(std::ostream& os) const;
 			void GenerateScript() const;
+
+			void SetRectanglePatchPreview(InspectionPatch& patch, const MeshType::IntersectionVertex& iv);
 
 			void SurfaceSketchBegin();
 			void SrufaceSketchUpdate(XMVECTOR pos, XMVECTOR dir);
@@ -164,8 +194,7 @@ namespace Causality
 
 			DirectX::Ray					m_castRay;
 			bool							m_isHit;
-			Geometrics::MeshRayIntersectionInfo	
-											m_isInfo;
+			MeshType::IntersectionVertex	m_intersectedVertex;
 
 			std::vector<int>				m_isCameraPath;
 			std::vector<InspectionPatch>	m_isPatches;
@@ -182,9 +211,8 @@ namespace Causality
 			Vector3							m_projectorDisplacement;
 			BoundingFrustum					m_cameraFrustum;
 			Matrix4x4						m_cameraProjection;
-			float							m_cameraFocus;
-			float							m_cameraDepthTolerance;
-			Vector2							m_maxPatchSize;
+			InspectionCameraParameter		m_cameraParam;
+			float							m_workloadUvScale;
 
 			RenderableTexture2D				m_decal;
 			cptr<ID2D1PathGeometry>			m_patchGeos;
