@@ -207,6 +207,10 @@ namespace Geometrics
 		{
 			return m_anchors;
 		}
+		AnchorCollection& anchors()
+		{
+			return m_anchors;
+		}
 
 	private:
 		// The data we stored is actually aligned on 16-byte boundary , so , use it as a XMFLOAT4A

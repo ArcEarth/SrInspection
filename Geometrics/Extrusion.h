@@ -63,6 +63,7 @@ namespace Geometrics
 
 		//Curve& uvBoundry();
 		const Curve& uvBoundry() const { return m_uvCurve; }
+		Curve& uvBoundry() { return m_uvCurve; }
 
 		bool append(XMVECTOR position, int fid);
 

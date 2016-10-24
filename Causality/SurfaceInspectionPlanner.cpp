@@ -1242,15 +1242,30 @@ void SurfaceInspectionPlanner::SurfacePatchDragBegin(InspectionPatch *patch)
 		return;
 	m_state = State_DragingPatch;
 	m_activePatch = patch;
+	m_dragLast = VertexTraits::get_uv(m_intersectedVertex);
 }
 
 void SurfaceInspectionPlanner::SurfacePatchDragUpdate(FXMVECTOR pos)
 {
-	
+	Vector2 cuv = VertexTraits::get_uv(m_intersectedVertex);
+	auto delta = cuv - m_dragLast;
+	m_dragLast = cuv;
+	assert(m_activePatch);
+	m_activePatch->m_uvCenter += delta;
+	m_activePatch->m_intersectedVertex = m_intersectedVertex;
+	XMVECTOR del = delta;
+	for (auto& anchor : m_activePatch->uvBoundry().anchors())
+	{
+		XMStoreA(anchor, XMLoadA(anchor) + del);
+	} 
+	m_activePatch->CaculateCameraFrustum();
+	m_activePatch->UpdateGeometry(Scene->Get2DFactory());
+	m_declDirtyFalg = 1;
 }
 
 void SurfaceInspectionPlanner::SurfacePatchDragEnd()
 {
+	this->CaculateCameraPath();
 	std::clog << "[Event] Patch Drag End" << std::endl;
 	m_state = State_Idle;
 	m_activePatch = nullptr;

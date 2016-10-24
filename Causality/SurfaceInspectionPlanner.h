@@ -199,6 +199,7 @@ namespace Causality
 			std::vector<int>				m_isCameraPath;
 			std::vector<InspectionPatch>	m_isPatches;
 			InspectionPatch*				m_activePatch;
+			Vector2							m_dragLast;
 
 			CubicBezierPatch				m_bezeirPatch;
 			TriangleMeshType				m_mesh;
