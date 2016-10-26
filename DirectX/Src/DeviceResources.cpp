@@ -79,11 +79,10 @@ void DirectX::DeviceResources::SetNativeWindow(HWND hWnd)
 {
 	m_deviceHostType = DeviceHostType::NativeWindow;
 	RECT rect;
-	GetWindowRect(hWnd, &rect);
+	GetClientRect(hWnd, &rect);
 	m_hWnd = hWnd;
-	int tileHeight = GetSystemMetrics(SM_CYSIZE);
 
-	m_logicalSize = Size((float)(rect.right - rect.left),(float)(rect.bottom - rect.top - tileHeight));
+	m_logicalSize = Size((float)(rect.right - rect.left),(float)(rect.bottom - rect.top));
 	m_nativeOrientation = DisplayOrientations::None;
 	m_currentOrientation = DisplayOrientations::None;
 

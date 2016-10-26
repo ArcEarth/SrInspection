@@ -52,9 +52,9 @@ constexpr float deg2rad(float deg)
 
 InspectionCameraParameter InspectionPatch::DefaultCameraParam = {
 	deg2rad(24),	//FoV
-	3.0f/4.0f,		//Aspect
+	3.0f / 4.0f,		//Aspect
 	8.0f,			//Focus
-	0.14f};			//DoF
+	0.14f };			//DoF
 float InspectionPatch::DefaultUvScale = 50.0f;
 
 namespace Causality
@@ -453,41 +453,83 @@ InspectionPatch * SurfaceInspectionPlanner::AddInspectionPatch(const InspectionP
 	return &patch;
 }
 
-void SurfaceInspectionPlanner::CaculateCameraPath()
+template <typename TDistanceFunc>
+class HamiltonPathSearcher
 {
-	m_isCameraPath.push_back(m_isCameraPath.size());
-	auto dis = [this](int i, int j) {return Vector3::Distance(m_isPatches[i].m_cameraFrustum.Origin, m_isPatches[j].m_cameraFrustum.Origin); };
+	TDistanceFunc dis;
+	std::vector<int> path;
+	std::vector<int>& spath;
+	int n;
+	float minDis;
+	vector<int> visited;
+	vector<float> dist_cache;
+public:
+	HamiltonPathSearcher(std::vector<int>& best_path, const TDistanceFunc& distance)
+		: spath(best_path), minDis(std::numeric_limits<float>::max()), n(best_path.size()), path(best_path), dis(distance), visited(best_path.size(), 0)
+	{
+		visited[best_path[0]] = 1;
+		dist_cache.resize(n*n);
+		for (int i = 0; i < n; i++)
+		{
+			for (int j = 0; j < n; j++)
+			{
+				dist_cache[i * n + j] = dis(i, j);
+			}
+		}
+	}
 
-	vector<int> path(m_isCameraPath);
-	auto& spath = m_isCameraPath;
-	int n = m_isCameraPath.size();
-	float minDis = std::numeric_limits<float>::max();
-	vector<BOOL> visited(n, false);
-	visited[m_isCameraPath[0]] = true;
+	float distance(int s, int t)
+	{
+		return dist_cache[s*n + t];
+	}
 
-	function<void(int, int)> search_recur = [&](int k, float sum) -> void
+	void search_recur(int k, float sum)
 	{
 		if (k == n && sum < minDis)
 		{
 			spath = path; minDis = sum;
 			return;
 		}
-		auto citr = path.begin() + k;
-		for (int i = 0; i < n; i++)
-		{
-			if (!visited[i])
-			{
-				path[k] = i;
-				visited[i] = true;
-				float newS = sum + dis(path[k - 1], path[k]);
-				if (newS < minDis)
-					search_recur(k + 1, newS);
-				visited[i] = false;
-			}
-		}
-	};
 
-	search_recur(1, .0f);
+		// find a proper path[k]
+		for (int i = k; i < n; i++)
+		{
+			std::swap(path[k], path[i]);
+			float newS = sum + distance(path[k - 1], path[k]);
+			if (newS < minDis)
+				search_recur(k + 1, newS);
+			std::swap(path[k], path[i]);
+		}
+	}
+
+	void operator()()
+	{
+		search_recur(1, .0f);
+	}
+};
+
+template <typename TDistanceFunc>
+void optimze_hamilton_path(std::vector<int>& best_path, const TDistanceFunc& distance)
+{
+	HamiltonPathSearcher<TDistanceFunc> searcher(best_path, distance);
+	searcher();
+}
+
+void SurfaceInspectionPlanner::CaculateCameraPath()
+{
+	if (m_isCameraPath.size() < 14)
+	{
+		m_isCameraPath.resize(m_isPatches.size());
+		std::iota(m_isCameraPath.begin(), m_isCameraPath.end(), 0);
+		//m_isCameraPath.push_back(m_isCameraPath.size());
+		auto dis = [this](int i, int j) {return Vector3::Distance(m_isPatches[i].m_cameraFrustum.Origin, m_isPatches[j].m_cameraFrustum.Origin); };
+		optimze_hamilton_path(m_isCameraPath, dis);
+	}
+	else
+	{
+		while (m_isCameraPath.size() < m_isPatches.size())
+			m_isCameraPath.push_back(m_isCameraPath.size());
+	}
 }
 
 void PrintVector3PBRT(std::ostream& os, DirectX::FXMVECTOR q)
@@ -585,7 +627,7 @@ void SurfaceInspectionPlanner::GenerateScript() const
 
 	std::ofstream excute_bat(workload_root / "excute.bat");
 	excute_bat << "@set PATH=%PATH%;" << pbrtbin << std::endl;
-	excute_bat << "@obj2pbrt.exe " << meshobj << ' ' << (workload_root/(wkName + ".pbrt")) << std::endl;
+	excute_bat << "@obj2pbrt.exe " << meshobj << ' ' << (workload_root / (wkName + ".pbrt")) << std::endl;
 	int n = m_isPatches.size();
 	char buffer[256];
 	for (int i = 0; i < n; i++)
@@ -629,7 +671,7 @@ void SurfaceInspectionPlanner::GenerateScript() const
 		}
 	}
 	excute_bat << "@mkdir image" << std::endl;
-	excute_bat << "@move " << workload_root <<"\\*.tiff "<< workload_root <<"\\image" << std::endl;
+	excute_bat << "@move " << workload_root << "\\*.tiff " << workload_root << "\\image" << std::endl;
 	excute_bat.close();
 
 	system(("explorer " + workload_root.string()).c_str());
@@ -1218,12 +1260,12 @@ void SurfaceInspectionPlanner::SrufaceSketchUpdate(XMVECTOR pos, XMVECTOR dir)
 			auto& uvcurve = patch.uvBoundry().anchors();
 
 			DirectX::BoundingBox box;
-			DirectX::BoundingBox::CreateFromPoints(box, uvcurve.size(),reinterpret_cast<const XMFLOAT3*>(&uvcurve[0]), sizeof(std::decay_t<decltype(uvcurve[0])>));
+			DirectX::BoundingBox::CreateFromPoints(box, uvcurve.size(), reinterpret_cast<const XMFLOAT3*>(&uvcurve[0]), sizeof(std::decay_t<decltype(uvcurve[0])>));
 			m_previwPatch.m_uvCenter = XMLoad(box.Center);
 			m_previwPatch.m_uvExtent = XMLoad(box.Extents);
 
 			m_previwPatch.CaculateCameraFrustum();
-			m_previwPatch.UpdateGeometry(Scene->Get2DFactory(),true);
+			m_previwPatch.UpdateGeometry(Scene->Get2DFactory(), true);
 			m_declDirtyFalg = true;
 		}
 	}
@@ -1257,7 +1299,7 @@ void SurfaceInspectionPlanner::SurfacePatchDragUpdate(FXMVECTOR pos)
 	for (auto& anchor : m_activePatch->uvBoundry().anchors())
 	{
 		XMStoreA(anchor, XMLoadA(anchor) + del);
-	} 
+	}
 	m_activePatch->CaculateCameraFrustum();
 	m_activePatch->UpdateGeometry(Scene->Get2DFactory());
 	m_declDirtyFalg = 1;
@@ -1272,7 +1314,7 @@ void SurfaceInspectionPlanner::SurfacePatchDragEnd()
 }
 
 InspectionPatch::InspectionPatch()
-	: m_areaFacets(1024*4), m_areaVertices(1024*4)
+	: m_areaFacets(1024 * 4), m_areaVertices(1024 * 4)
 {
 	Valiad = false;
 	m_uvRotation = .0f;
@@ -1285,11 +1327,11 @@ InspectionPatch::InspectionPatch()
 	m_decalTransform = D2D1::Matrix3x2F::Identity();
 	DecalSize = Vector2(g_DecalResolution);
 
-	SetCameraParameter(	DefaultCameraParam.DepthOfField,
-						DefaultCameraParam.Aspect,
-						DefaultCameraParam.Focus,
-						DefaultCameraParam.DepthOfField,
-						DefaultUvScale);
+	SetCameraParameter(DefaultCameraParam.DepthOfField,
+		DefaultCameraParam.Aspect,
+		DefaultCameraParam.Focus,
+		DefaultCameraParam.DepthOfField,
+		DefaultUvScale);
 }
 
 void InspectionPatch::SetCameraParameter(float fov_x_rad, float aspect_h_by_w, float focus_distance, float focus_dof, float uvscale)
